@@ -1,0 +1,19 @@
+[package]
+name = "vexillo"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["crates/*"]
+
+[dependencies]
+# Internal
+vexmacro = { path = "crates/vexmacro" }
+# External
+paste = "1.0.15"
+proc-macro2 = "1.0.101"
+quote = "1.0.41"
+syn = { version = "2.0.106", features = ["full", "visit-mut"] }
+
+[lib]
+proc-macro = true
