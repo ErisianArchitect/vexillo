@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use syn::{Error, Ident, Token, braced, parse::Parse};
-use proc_macro::TokenTree;
+use syn::{Error, Ident, Token, braced, parse::Parse, visit_mut::VisitMut};
 
-use crate::flags::vis::Vis;
+use crate::vis::Vis;
 
 /*
 pub new
@@ -132,13 +131,9 @@ impl ImplBlock {
         self.items.insert(key, item)
     }
     
-    pub fn get_ident(&self, key: &Ident) -> Option<&Ident> {
+    pub fn get_alt(&self, key: &Ident) -> Option<&Ident> {
         if let Some(item) = self.items.get(key) {
-            Some(if let Some(alt) = &item.new_ident {
-                alt
-            } else {
-                &item.item_ident
-            })
+            item.new_ident.as_ref()
         } else {
             None
         }
@@ -180,5 +175,50 @@ impl Parse for ImplBlock {
             }
         }
         Ok(items)
+    }
+}
+
+impl VisitMut for ImplBlock {
+    fn visit_item_fn_mut(&mut self, i: &mut syn::ItemFn) {
+        if let Some(item) = self.items.get(&i.sig.ident) {
+            let vis = item.vis.resolve(Some(&i.vis));
+            i.vis = vis;
+            if let Some(alt) = &item.new_ident {
+                i.sig.ident = alt.clone();
+            }
+        }
+        syn::visit_mut::visit_item_fn_mut(self, i);
+    }
+    
+    fn visit_path_mut(&mut self, i: &mut syn::Path) {
+        if i.segments.len() < 2 {
+            return;
+        }
+        let first = &i.segments[0].ident;
+        if first != "Self" {
+            return;
+        }
+        let second = &mut i.segments[1].ident;
+        if let Some(new_ident) = self.get_alt(second) {
+            *second = new_ident.clone();
+        }
+        syn::visit_mut::visit_path_mut(self, i);
+    }
+    
+    fn visit_expr_method_call_mut(&mut self, i: &mut syn::ExprMethodCall) {
+        if let syn::Expr::Path(exp) = &mut *i.receiver {
+            if exp.path.segments.len() < 2 {
+                return;
+            }
+            let first = &exp.path.segments[0].ident;
+            if first != "self" {
+                return;
+            }
+            let second = &mut exp.path.segments[1].ident;
+            if let Some(new_ident) = self.get_alt(second) {
+                *second = new_ident.clone();
+            }
+        }
+        syn::visit_mut::visit_expr_method_call_mut(self, i);
     }
 }

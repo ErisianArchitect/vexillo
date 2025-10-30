@@ -1,4 +1,4 @@
-pub(crate) mod flags;
+
 
 /*
 
@@ -103,6 +103,8 @@ vexillo::flags!{
 //      pub const index_order_flags() -> &'static [(&'static str, Self)]
 // - `bit_size_order_flags` (An array of flags ordered by bit count descending)
 //      pub const bit_size_order_flags() -> &'static [(&'static str, Self)]
+// - `lowercase_names` (An array of lowercase names for single flags in the order of their index)
+// - `uppercase_names` (An array of uppercase names for single flags in the order of their index)
 
 Functions that are built-in internals:
     /// (mask_index, bit_index)

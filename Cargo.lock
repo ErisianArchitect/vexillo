@@ -44,6 +44,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "462eeb75aeb73aea900253ce739c8e18a67423fadf006037cd3ff27e82748a06"
 
 [[package]]
+name = "vexcore"
+version = "0.1.0"
+dependencies = [
+ "paste",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "vexmacro",
+]
+
+[[package]]
 name = "vexillo"
 version = "0.1.0"
 dependencies = [
@@ -51,6 +62,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+ "vexcore",
  "vexmacro",
 ]
 
