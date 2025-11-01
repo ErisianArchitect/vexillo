@@ -1,0 +1,17 @@
+[package]
+name = "vexproc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Internal
+vexcore.workspace = true
+vexmacro.workspace = true
+# External
+paste.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
+
+[lib]
+proc-macro = true

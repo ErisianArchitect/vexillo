@@ -1,5 +1,4 @@
-
-
+extern crate vexcore as vecproccore;
 /*
 
 vexillo::flags!{

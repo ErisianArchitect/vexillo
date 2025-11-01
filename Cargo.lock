@@ -64,8 +64,21 @@ dependencies = [
  "syn",
  "vexcore",
  "vexmacro",
+ "vexproc",
 ]
 
 [[package]]
 name = "vexmacro"
 version = "0.1.0"
+
+[[package]]
+name = "vexproc"
+version = "0.1.0"
+dependencies = [
+ "paste",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "vexcore",
+ "vexmacro",
+]

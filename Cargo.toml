@@ -10,6 +10,7 @@ members = ["crates/*"]
 # Internal
 vexcore = { path = "crates/vexcore" }
 vexmacro = { path = "crates/vexmacro" }
+vexproc = { path = "crates/vexproc" }
 # External
 paste = "1.0.15"
 proc-macro2 = "1.0.101"
@@ -20,11 +21,9 @@ syn = { version = "2.0.106", features = ["full", "visit-mut"] }
 # Internal
 vexcore.workspace = true
 vexmacro.workspace = true
+vexproc.workspace = true
 # External
 paste.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
 syn.workspace = true
-
-[lib]
-proc-macro = true
