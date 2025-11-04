@@ -1,3 +1,8 @@
+use syn::{Ident, Token, bracketed, parse::Parse, token::Colon};
+use vexmacro::ensure_eof;
+
+use crate::vis::Vis;
+
 
 macro_rules! prototype { ($($_:tt)*) => {} }
 
@@ -118,26 +123,93 @@ prototype!{
         REVOKE_ADMIN
     ]
 }
-/*
-*/
 
-use syn::Ident;
+pub struct AddFlagsItem {
+    pub flags: Vec<Ident>,
+}
 
-use crate::vis::Vis;
+pub struct RemoveFlagsItem {
+    pub flags: Vec<Ident>,
+}
+
+pub struct DeclareFlagItem {
+    pub vis: Vis,
+    pub ident: Ident,
+}
 
 pub enum FlagItem {
-    Add(Ident),
-    Remove(Ident),
+    Add(AddFlagsItem),
+    Remove(RemoveFlagsItem),
     Group(Box<FlagGroup>),
-    Declare(Ident),
+    Declare(DeclareFlagItem),
+}
+
+impl Parse for FlagItem {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        if input.peek(Token![+]) {
+            _=input.parse::<Token![+]>()?;
+            let first = input.parse::<Ident>()?;
+            let mut flags = vec![first];
+            while input.peek(Token![|]) {
+                _=input.parse::<Token![|]>()?;
+                flags.push(input.parse()?);
+            }
+            Ok(FlagItem::Add(AddFlagsItem {
+                flags,
+            }))
+        } else if input.peek(Token![-]) {
+            _=input.parse::<Token![-]>()?;
+            let first = input.parse::<Ident>()?;
+            let mut flags = vec![first];
+            while input.peek(Token![|]) {
+                _=input.parse::<Token![|]>()?;
+                flags.push(input.parse()?);
+            }
+            Ok(FlagItem::Remove(RemoveFlagsItem {
+                flags,
+            }))
+        } else {
+            let fork = input.fork();
+            let _vis = fork.parse::<Vis>()?;
+            let _ident = fork.parse::<Ident>()?;
+            if fork.peek(Token![:]) {
+                // group
+                let group = input.parse::<FlagGroup>()?;
+                Ok(FlagItem::Group(Box::new(group)))
+            } else {
+                // declaration
+                let vis = input.parse::<Vis>()?;
+                let ident = fork.parse::<Ident>()?;
+                Ok(FlagItem::Declare(DeclareFlagItem {
+                    vis,
+                    ident,
+                }))
+            }
+        }
+    }
 }
 
 pub struct FlagGroup {
     pub vis: Vis,
-    pub ident: Ident
-    
+    pub ident: Option<Ident>,
+    pub items: Vec<FlagItem>,
 }
 
-pub struct FlagSubGroup {
-    
+impl Parse for FlagGroup {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let vis = input.parse::<Vis>()?;
+        let ident = input.parse::<Option<Ident>>()?;
+        let _colon: Colon = input.parse()?;
+        let group_content;
+        bracketed!(group_content in input);
+        let mut items = Vec::new();
+        while !group_content.is_empty() {
+            items.push(group_content.parse()?);
+        }
+        Ok(Self {
+            vis,
+            ident,
+            items,
+        })
+    }
 }
