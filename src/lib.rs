@@ -69,8 +69,8 @@ vexproc::flags!{
         FLAG0
         // Declaration
         priv DECLARATION
-        DECLARATION
         // Group
+        #[doc = "hello, world"]
         pub GROUP: [
             + FLAG0
             ALPHA
@@ -103,7 +103,6 @@ vexproc::flags!{
                 ONE
                 TWO
                 THREE
-                
             ]
         ]
         // You can bind a flag to another name with this simple trick:
@@ -130,21 +129,35 @@ vexproc::flags!{
     // explicit visibility modifier will also be pub.
     pub const {
         OWNER: [
-            GRANT_SUPER
-            REVOKE_SUPER
-            SUPER: [
-                GRANT_MOD
-                REVOKE_MOD
-                MOD: [
-                    MOD_CHANNELS
-                    BAN_USER
-                    UNBAN_USER
-                    APPROVE_USER
-                    USER: [
-                        USER_CHANNELS
-                        GUEST: [
-                            LOBBY
-                            MESSAGE_MODS
+            GRANT_ADMIN
+            REVOKE_ADMIN
+            SHUTDOWN_SERVER
+            CLEAR_LOG
+            ADMIN: [
+                GRANT_SUPER
+                REVOKE_SUPER
+                CREATE_CHANNEL
+                DELETE_CHANNEL
+                RENAME_CHANNEL
+                RESTART_SERVER
+                SUPER: [
+                    GRANT_MOD
+                    REVOKE_MOD
+                    MOD: [
+                        /// Gives access to mod channels
+                        MOD_CHANNELS
+                        BAN_USER
+                        UNBAN_USER
+                        APPROVE_USER
+                        USER: [
+                            /// Gives access to user channels.
+                            USER_CHANNELS
+                            GUEST: [
+                                /// Gives access to the lobby.
+                                LOBBY
+                                /// Allows to message the mods.
+                                MESSAGE_MODS
+                            ]
                         ]
                     ]
                 ]

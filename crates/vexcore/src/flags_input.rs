@@ -1,6 +1,6 @@
-use syn::{Attribute, Ident, Type, Visibility, parse::Parse};
+use syn::{Attribute, parse::Parse};
 
-use crate::{const_block::ConstBlock, flag_group::FlagGroup, override_block::OverrideBlock, type_decl::TypeDecl};
+use crate::{const_block::ConstBlock, override_block::OverrideBlock, type_decl::TypeDecl};
 
 pub struct FlagsInput {
     pub attrs: Vec<Attribute>,

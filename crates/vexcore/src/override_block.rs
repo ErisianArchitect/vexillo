@@ -175,7 +175,7 @@ impl Parse for OverrideBlock {
             let key = item.item_ident.clone();
             let ident_span = item.item_ident.span();
             if items.insert(key, item).is_none() {
-                return Err(Error::new(ident_span, "Unexpected impl item."));
+                return Err(Error::new(ident_span, "Unexpected override item."));
             }
         }
         Ok(items)
