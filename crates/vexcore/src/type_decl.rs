@@ -15,6 +15,7 @@ pub struct TypeDecl {
 impl Parse for TypeDecl {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let vis = input.parse()?;
+        _ = input.parse::<Token![struct]>()?;
         let type_name = input.parse()?;
         let (mask_vis, mask_type) = if input.peek(Paren) {
             let inner;

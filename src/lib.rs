@@ -1,7 +1,6 @@
 extern crate vexcore as vecproccore;
-/*
 
-vexillo::flags!{
+vexproc::flags!{
     // Define type with `vis struct Name(vis [FlagIntType]);
     // FlagIntType must be one of the following: u8, u16, u32, or u64.
     // The FlagIntType determines the type to use for bit masks. `vis` determines
@@ -9,7 +8,7 @@ vexillo::flags!{
     /// Example flags struct.
     pub struct ExampleFlags(pub [u64]);
     // Optional:
-    impl {
+    override {
         // Change name or visibility of builtin functions/constants.
         // You can not remove these builtin functions as they might be necessary for certain
         // functionality to work. You can hide them by modifying their visibility.
@@ -18,9 +17,9 @@ vexillo::flags!{
         // use priv to make it private.
         // no visibility modifier means that it will use the default visibility, which is `pub` for
         // most of the builtin functions.
-        pub new: create
         pub none: empty
         pub all: full
+        pub new: create
         pub union
         pub union_without
         pub try_find
@@ -48,6 +47,10 @@ vexillo::flags!{
         pub into_inner
         pub as_bytes
         pub as_mut_bytes
+        pub to_be_bytes
+        pub to_le_bytes
+        pub from_be_bytes
+        pub from_le_bytes
         // Bitwise logic
         pub not
         pub and
@@ -62,34 +65,96 @@ vexillo::flags!{
         pub eq
         pub ne
     }
-    // You must have at least one flag group.
-    // Place flags in groups. Use `priv` for private flags.
-    // Each flag group can have attributes attached, which will be applied to all flag
-    // constants within the group.
-    priv: [
-        PRIVATE_FLAG
-    ]
-    // Use `pub` for public flags.
-    pub: [
-        /// You can put attributes, including doc comments, on flags.
-        FLAG_NAME
-        // You can also create union flags:
-        UNION_FLAGS = [
-            PRIVATE_FLAG
-            FLAG_NAME
+    pub const {
+        FLAG0
+        // Declaration
+        priv DECLARATION
+        DECLARATION
+        // Group
+        pub GROUP: [
+            + FLAG0
+            ALPHA
+            BETA
+            CAPPA
         ]
-        OTHER_UNION = [
-            // flag unions can contains other flag unions
-            UNION_FLAGS
-            // And you can remove flags that have been added with `-`.
-            // Flag additions and removals happen in the order that they
-            // appear, so if it's important that a union does not have
-            // a flag, you should place the removal after all additions.
-            // This ordering happens so that conditional flags can add flags that were previously removed.
-            -PRIVATE_FLAG
+        // Empty group to specify no flags set.
+        pub TEST: []
+        pub ALL: [
+            // [vis] <identifier> is a flag declaration. These flags will be assigned a single bit, in the order that they appear.
+            APPLE
+            BANANA
+            STRAWBERRY
+            pub FRUIT: [
+                // Use + to add flags, use | to join them together.
+                + APPLE | BANANA | STRAWBERRY
+                // Alternatively, it looks nice when you put them all on the same line:
+                // + APPLE
+                // | BANANA
+                // | STRAWBERRY
+                // Use - to remove flags.
+                // This removes BANANA and STRAWBERRY.
+                - BANANA
+                | STRAWBERRY
+            ]
+            // Alternatively, you could have declared the fruit inside of the FRUIT group.
+            pub PUBLIC: [
+                // All flags in PUBLIC will be pub unless otherwise specified.
+                // These are all public single flag consts.
+                ONE
+                TWO
+                THREE
+                
+            ]
         ]
-    ]
+        // You can bind a flag to another name with this simple trick:
+        pub FULL: [+ALL]
+    }
 }
+
+vexproc::flags!(
+    pub struct Flags(pub [u8]);
+    pub const {
+        // Hide first flag for no apparent reason.
+        priv FLAG0
+        priv FLAG1
+        GROUP0: [
+            + FLAG0
+            | FLAG1
+        ]
+    }
+);
+
+vexproc::flags!{
+    pub struct Perms(pub [u8]);
+    // Since the root is pub, all flags within the root without an
+    // explicit visibility modifier will also be pub.
+    pub const {
+        OWNER: [
+            GRANT_SUPER
+            REVOKE_SUPER
+            SUPER: [
+                GRANT_MOD
+                REVOKE_MOD
+                MOD: [
+                    MOD_CHANNELS
+                    BAN_USER
+                    UNBAN_USER
+                    APPROVE_USER
+                    USER: [
+                        USER_CHANNELS
+                        GUEST: [
+                            LOBBY
+                            MESSAGE_MODS
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    }
+}
+
+/*
+
 
 // Builtin flag constants:
 // - `NONE` (No bits set)

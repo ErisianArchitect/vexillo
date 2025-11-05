@@ -1,5 +1,5 @@
 use syn::{parse::Parse, token::Priv, Visibility};
-use syn::Token;
+use syn::{Token, parse_quote};
 
 #[derive(Clone)]
 pub enum Vis {
@@ -21,7 +21,7 @@ impl Parse for Vis {
 impl Vis {
     pub fn resolve(&self, default: Option<&Visibility>) -> Visibility {
         match (self, default) {
-            (Self::Private(_priv), _) => Visibility::Inherited,
+            (Self::Private(_priv), _) => parse_quote!(pub(self)),
             (Self::Syn(Visibility::Inherited), Some(visibility)) => visibility.clone(),
             (Self::Syn(visibility), _) => visibility.clone(),
         }

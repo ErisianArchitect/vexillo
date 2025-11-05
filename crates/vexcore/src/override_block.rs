@@ -48,17 +48,17 @@ pub eq
 pub ne
 */
 
-pub struct ImplItem {
+pub struct OverrideItem {
     pub vis: Vis,
     pub item_ident: Ident,
     pub new_ident: Option<Ident>,
 }
 
-pub struct ImplBlock {
-    pub items: HashMap<Ident, ImplItem>,
+pub struct OverrideBlock {
+    pub items: HashMap<Ident, OverrideItem>,
 }
 
-impl ImplBlock {
+impl OverrideBlock {
     pub fn new_init() -> Self {
         macro_rules! items {
             ($($vis:vis $name:ident)*) => {
@@ -68,7 +68,7 @@ impl ImplBlock {
                             let ident: Ident = syn::parse_quote!($name);
                             (
                                 ident.clone(),
-                                ImplItem {
+                                OverrideItem {
                                     vis: syn::parse_quote!($vis),
                                     item_ident: ident,
                                     new_ident: None,
@@ -111,6 +111,10 @@ impl ImplBlock {
                 pub into_inner
                 pub as_bytes
                 pub as_mut_bytes
+                pub to_be_bytes
+                pub to_le_bytes
+                pub from_be_bytes
+                pub from_le_bytes
                 pub not
                 pub and
                 pub or
@@ -127,7 +131,7 @@ impl ImplBlock {
     }
     
     #[inline]
-    fn insert(&mut self, key: Ident, item: ImplItem) -> Option<ImplItem> {
+    fn insert(&mut self, key: Ident, item: OverrideItem) -> Option<OverrideItem> {
         self.items.insert(key, item)
     }
     
@@ -140,7 +144,7 @@ impl ImplBlock {
     }
 }
 
-impl Parse for ImplItem {
+impl Parse for OverrideItem {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         Ok(Self {
             vis: input.parse()?,
@@ -157,17 +161,17 @@ impl Parse for ImplItem {
     }
 }
 
-impl Parse for ImplBlock {
+impl Parse for OverrideBlock {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut items = ImplBlock::new_init();
-        if !input.peek(Token![impl]) {
+        let mut items = OverrideBlock::new_init();
+        if !input.peek(Token![override]) {
             return Ok(items);
         }
-        input.parse::<Token![impl]>()?;
+        input.parse::<Token![override]>()?;
         let block;
         braced!(block in input);
         while !block.is_empty() {
-            let item = block.parse::<ImplItem>()?;
+            let item = block.parse::<OverrideItem>()?;
             let key = item.item_ident.clone();
             let ident_span = item.item_ident.span();
             if items.insert(key, item).is_none() {
@@ -178,7 +182,7 @@ impl Parse for ImplBlock {
     }
 }
 
-impl VisitMut for ImplBlock {
+impl VisitMut for OverrideBlock {
     fn visit_item_fn_mut(&mut self, i: &mut syn::ItemFn) {
         if let Some(item) = self.items.get(&i.sig.ident) {
             let vis = item.vis.resolve(Some(&i.vis));
