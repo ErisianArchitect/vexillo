@@ -1,6 +1,9 @@
-extern crate vexcore as vecproccore;
+mod internal;
+pub use internal::*;
+pub use vexproc::{flags};
 
-vexproc::flags!{
+#[allow(non_upper_case_globals)]
+flags!{
     // Define type with `vis struct Name(vis [FlagIntType]);
     // FlagIntType must be one of the following: u8, u16, u32, or u64.
     // The FlagIntType determines the type to use for bit masks. `vis` determines
@@ -110,7 +113,7 @@ vexproc::flags!{
     }
 }
 
-vexproc::flags!(
+flags!(
     pub struct Flags(pub [u8]);
     pub const {
         // Hide first flag for no apparent reason.
@@ -123,7 +126,8 @@ vexproc::flags!(
     }
 );
 
-vexproc::flags!{
+flags!{
+    #[doc = "Permissions"]
     pub struct Perms(pub [u8]);
     // Since the root is pub, all flags within the root without an
     // explicit visibility modifier will also be pub.

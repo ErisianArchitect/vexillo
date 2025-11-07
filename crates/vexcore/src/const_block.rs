@@ -1,32 +1,32 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use syn::{
-    Attribute, Error, Ident, Token, braced, bracketed, parse::Parse, token::Colon
+    Attribute, Error, Ident, Token, braced, bracketed, parse::Parse
 };
 use crate::vis::Vis;
 
-pub struct AddFlagsItem {
-    pub flags: Vec<Ident>,
+struct AddFlagsItem {
+    flags: Vec<Ident>,
 }
 
-pub struct RemoveFlagsItem {
-    pub flags: Vec<Ident>,
+struct RemoveFlagsItem {
+    flags: Vec<Ident>,
 }
 
-pub struct DeclareFlagItem {
-    pub attrs: Vec<Attribute>,
-    pub vis: Vis,
-    pub ident: Ident,
+struct DeclareFlagItem {
+    attrs: Vec<Attribute>,
+    vis: Vis,
+    ident: Ident,
 }
 
-pub struct DeclareGroupItem {
-    pub attrs: Vec<Attribute>,
-    pub vis: Vis,
-    pub ident: Ident,
-    pub items: Vec<GroupItem>,
+struct DeclareGroupItem {
+    attrs: Vec<Attribute>,
+    vis: Vis,
+    ident: Ident,
+    items: Vec<GroupItem>,
 }
 
-pub enum DeclareItem {
+enum DeclareItem {
     Single(DeclareFlagItem),
     Group(DeclareGroupItem),
 }
@@ -76,43 +76,42 @@ impl Parse for DeclareItem {
     }
 }
 
+
 impl DeclareItem {
     pub fn verify<'a>(&'a self, declared_idents: &mut HashSet<&'a Ident>) -> syn::Result<()> {
+        fn repeat_definition_err(first: &Ident, second: &Ident) -> syn::Error {
+            let mut first_err = syn::Error::new(
+                first.span(),
+                format!("`{}` first defined here.", first)
+            );
+            let second = syn::Error::new(
+                second.span(),
+                format!("`{}` repeat definition.", second)
+            );
+            first_err.combine(second);
+            first_err
+        }
+        macro_rules! verify_and_insert {
+            ($item:ident) => {
+                {
+                    crate::verify_no_cfg(&$item.attrs, crate::FLAG_CFG_ERR_MSG)?;
+                    if let Some(&repeat) = declared_idents.get(&$item.ident) {
+                        return Err(repeat_definition_err(repeat, &$item.ident));
+                    } else {
+                        declared_idents.insert(&$item.ident);
+                    }
+                }
+            };
+        }
         match self {
-            DeclareItem::Single(declare_flag_item) => {
-                if let Some(&repeat) = declared_idents.get(&declare_flag_item.ident) {
-                    let mut first_err = syn::Error::new(
-                        repeat.span(),
-                        format!("`{}` first defined here.", repeat)
-                    );
-                    let second_err = syn::Error::new(
-                        declare_flag_item.ident.span(),
-                        format!("`{}` repeat definition.", declare_flag_item.ident)
-                    );
-                    first_err.combine(second_err);
-                    return Err(first_err);
-                } else {
-                    declared_idents.insert(&declare_flag_item.ident);
-                }
+            DeclareItem::Single(item) => {
+                verify_and_insert!(item);
             },
-            DeclareItem::Group(declare_group_item) => {
-                if let Some(&repeat) = declared_idents.get(&declare_group_item.ident) {
-                    let mut first_err = syn::Error::new(
-                        repeat.span(),
-                        format!("`{}` first defined here.", repeat)
-                    );
-                    let second_err = syn::Error::new(
-                        declare_group_item.ident.span(),
-                        format!("`{}` repeat definition.", declare_group_item.ident)
-                    );
-                    first_err.combine(second_err);
-                    return Err(first_err);
-                } else {
-                    declared_idents.insert(&declare_group_item.ident);
-                }
-                declare_group_item.items
+            DeclareItem::Group(item) => {
+                verify_and_insert!(item);
+                item.items
                     .iter()
-                    .try_for_each(|item| {
+                    .try_for_each(move |item| {
                         match item {
                             GroupItem::Declare(declare_item) => declare_item.verify(declared_idents),
                             _ => Ok(()),
@@ -122,9 +121,11 @@ impl DeclareItem {
         }
         Ok(())
     }
+    
+    
 }
 
-pub enum GroupItem {
+enum GroupItem {
     Add(AddFlagsItem),
     Remove(RemoveFlagsItem),
     Declare(DeclareItem),
@@ -161,32 +162,7 @@ impl Parse for GroupItem {
     }
 }
 
-pub struct NamedGroup {
-    pub vis: Vis,
-    pub ident: Ident,
-    pub items: Vec<GroupItem>,
-}
-
-impl Parse for NamedGroup {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let vis = input.parse()?;
-        let ident = input.parse()?;
-        _=input.parse::<Colon>()?;
-        let content;
-        bracketed!(content in input);
-        let mut items = Vec::new();
-        while !content.is_empty() {
-            items.push(content.parse()?);
-        }
-        Ok(Self {
-            vis,
-            ident,
-            items,
-        })
-    }
-}
-
-pub struct DeclareGroup {
+struct DeclareGroup {
     pub vis: Vis,
     pub declarations: Vec<DeclareFlagItem>,
 }
@@ -208,26 +184,110 @@ impl Parse for DeclareGroup {
     }
 }
 
-pub enum FlagGroup {
-    Named(NamedGroup),
-    Declare(DeclareGroup),
+struct ConstSingle<'a> {
+    pub attrs: &'a [Attribute],
+    pub ident: &'a Ident,
 }
 
-impl Parse for FlagGroup {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let fork = input.fork();
-        let _vis = fork.parse::<Vis>()?;
-        if fork.peek(Ident) && fork.peek2(Token![:]) {
-            Ok(FlagGroup::Named(input.parse()?))
-        } else {
-            Ok(FlagGroup::Declare(input.parse()?))
+struct ConstGroup<'a> {
+    pub attrs: &'a [Attribute],
+    pub ident: &'a Ident,
+    pub additions: Vec<&'a Ident>,
+    pub removals: Vec<&'a Ident>,
+}
+
+struct ConstBlockBuilder<'a> {
+    inner: FlagConstants<'a>,
+}
+
+impl<'a> ConstSingle<'a> {
+    #[inline]
+    pub fn new(attrs: &'a [Attribute], ident: &'a Ident) -> Self {
+        Self {
+            attrs,
+            ident,
         }
     }
+}
+
+impl<'a> ConstGroup<'a> {
+    
+}
+
+impl<'a> ConstBlockBuilder<'a> {
+    #[inline]
+    fn new() -> Self {
+        Self {
+            inner: FlagConstants {
+                singles: Vec::new(),
+                groups: Vec::new(),
+            },
+        }
+    }
+}
+
+pub struct FlagConstants<'a> {
+    pub singles: Vec<ConstSingle<'a>>,
+    pub groups: Vec<ConstGroup<'a>>,
 }
 
 pub struct ConstBlock {
     pub vis: Vis,
     pub items: Vec<DeclareItem>,
+}
+
+/*
+DeclareItem
+    DeclareFlagItem
+    DeclareGroupItem
+        Add (Vec<Ident>)
+        Remove (Vec<Ident>)
+        Declare(DeclareItem)
+*/
+
+static RESERVED_CONST_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    HashSet::from([
+        // pub
+        "BITS",
+        // pub
+        "SINGLE_FLAG_COUNT",
+        // pub
+        "GROUP_FLAG_COUNT",
+        // pub
+        "TOTAL_FLAG_COUNT",
+        // pub
+        "NONE",
+        // pub
+        "ALL",
+        // priv
+        "BIT_COUNT_DESCENDING_FLAGS",
+        // priv
+        "ORDERED_SINGLE_FLAGS",
+        // priv
+        "ORDERED_GROUP_FLAGS",
+        // priv
+        "ORDERED_FLAGS",
+    ])
+});
+
+struct IdentVerifier<'a> {
+    ident_buffer: String,
+    declared: HashSet<&'a Ident>,
+}
+
+impl<'a> IdentVerifier<'a> {
+    fn insert_and_verify(&mut self, ident: &'a Ident) -> syn::Result<()> {
+        use std::fmt::Write;
+        self.ident_buffer.clear();
+        write!(self.ident_buffer, "{}", ident).unwrap();
+        if RESERVED_CONST_NAMES.contains(&self.ident_buffer) {
+            return Err(syn::Error::new(
+                ident.span(),
+                format!("`{ident}` is a Reserved identifier.")
+            ));
+        }
+        
+    }
 }
 
 impl ConstBlock {
@@ -238,6 +298,10 @@ impl ConstBlock {
             item.verify(&mut declared_idents)
         })?;
         Ok(self)
+    }
+    
+    pub fn build<'a>(&'a self) -> FlagConstants<'a> {
+        todo!()
     }
 }
 
@@ -261,33 +325,18 @@ impl Parse for ConstBlock {
     }
 }
 
-pub enum ConstantGroupItem<'a> {
-    Add(&'a Ident),
-    Remove(&'a Ident),
-}
-
-pub struct ConstantGroup<'a> {
-    pub ident: &'a Ident,
-    pub items: Vec<ConstantGroupItem<'a>>,
-}
-
-pub struct FlagConstants<'a> {
-    pub singles: Vec<&'a Ident>,
-    pub groups: Vec<ConstantGroup<'a>>,
-}
-
-impl<'a> FlagConstants<'a> {
-    pub fn build(const_block: &'a ConstBlock) -> Self {
-        // First collect all single flags
-        let mut builder = FlagConstants {
-            singles: Vec::new(),
-            groups: Vec::new(),
-        };
-        const_block.items
-            .iter()
-            .for_each(|item| {
+// impl<'a> FlagConstants<'a> {
+//     pub fn build(const_block: &'a ConstBlock) -> Self {
+//         // First collect all single flags
+//         let mut builder = FlagConstants {
+//             singles: Vec::new(),
+//             groups: Vec::new(),
+//         };
+//         const_block.items
+//             .iter()
+//             .for_each(|item| {
                 
-            });
-        todo!()
-    }
-}
+//             });
+//         todo!()
+//     }
+// }

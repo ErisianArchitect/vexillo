@@ -1,19 +1,22 @@
-use syn::{Ident, Token, Type, Visibility, bracketed, parenthesized, parse::Parse, token::Paren};
+use syn::{Attribute, Ident, Token, Type, Visibility, bracketed, parenthesized, parse::Parse, token::Paren};
 use vexmacro::*;
 
 fn default_mask_type() -> Type {
     syn::parse_quote!(u32)
 }
 
-pub struct TypeDecl {
+pub struct TypeDef {
+    pub attrs: Vec<Attribute>,
     pub vis: Visibility,
     pub type_name: Ident,
     pub mask_vis: Visibility,
     pub mask_type: Type,
 }
 
-impl Parse for TypeDecl {
+impl Parse for TypeDef {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
+        crate::verify_no_cfg(&attrs, "`cfg` attribute is error prone and is not allowed.\nInstead, use `cfg` on the macro call itself.\nAttempts to circumvent this error is likely to result in undesireable consequences.")?;
         let vis = input.parse()?;
         _ = input.parse::<Token![struct]>()?;
         let type_name = input.parse()?;
@@ -42,6 +45,7 @@ impl Parse for TypeDecl {
             )
         };
         Ok(Self {
+            attrs,
             vis,
             type_name,
             mask_vis,
