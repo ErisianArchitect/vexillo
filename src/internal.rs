@@ -69,3 +69,84 @@ pub const fn const_cmp_str(lhs: &str, rhs: &str) -> Ordering {
         len_cmp
     }
 }
+
+#[doc(hidden)]
+pub struct ConstCounter<T> {
+    pub count: T,
+}
+
+macro_rules! counter_impls {
+    ($($count_ty:ty),*$(,)?) => {
+        $(
+            impl ConstCounter<$count_ty> {
+                #[must_use]
+                #[inline(always)]
+                pub const fn next(&mut self) -> $count_ty {
+                    let next = self.count;
+                    self.count += 1;
+                    next
+                }
+                
+                #[must_use]
+                #[inline(always)]
+                pub const fn incr(&mut self) {
+                    self.next();
+                }
+            }
+        )*
+    };
+}
+
+impl<T> ConstCounter<T> {
+    #[inline(always)]
+    #[must_use]
+    pub const fn new(start: T) -> Self {
+        Self {
+            count: start,
+        }
+    }
+}
+
+counter_impls!(
+    u8,
+    u16,
+    u32,
+    u64,
+    usize,
+);
+
+#[doc(hidden)]
+#[derive(Clone, Copy)]
+pub struct MaskIndex {
+    pub mask: usize,
+    pub bit: u32,
+}
+
+impl MaskIndex {
+    #[must_use]
+    #[inline(always)]
+    pub const fn new(index: u32, bit_size: u32) -> Self {
+        Self {
+            mask: (index / bit_size) as usize,
+            bit: index % bit_size,
+        }
+    }
+}
+
+#[doc(hidden)]
+#[must_use]
+#[inline(always)]
+pub const fn subslice<T>(slice: &[T], start: usize, len: usize) -> &[T] {
+    unsafe {
+        core::slice::from_raw_parts(slice.as_ptr().add(start), len)
+    }
+}
+
+#[doc(hidden)]
+#[must_use]
+#[inline(always)]
+pub const fn subslice_mut<T>(slice: &mut [T], start: usize, len: usize) -> &mut [T] {
+    unsafe {
+        core::slice::from_raw_parts_mut(slice.as_mut_ptr().add(start), len)
+    }
+}

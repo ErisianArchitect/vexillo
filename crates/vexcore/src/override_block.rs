@@ -81,56 +81,107 @@ impl OverrideBlock {
         }
         Self {
             items: items![
+                // pub const fn new() -> Self
                 pub new
+                // pub const fn none() -> Self
                 pub none
+                // pub const fn all() -> Self
                 pub all
+                // pub const fn union(flags: &[Self]) -> Self
                 pub union
+                // pub const fn union_without(with: &[Self], without: &[Self])
                 pub union_without
+                // pub const fn try_find(&str) -> Option<Self>
                 pub try_find
+                // pub const fn find(&str) -> Self
                 pub find
+                // pub const fn find_or(&str, default: Self) -> Self
                 pub find_or
+                // pub const fn find_or_none(&str) -> Self
                 pub find_or_none
+                // pub const fn count_ones(&self) -> u32
                 pub count_ones
+                // pub const fn count_zeros(&self) -> u32
                 pub count_zeros
-                pub add
-                pub add_all
-                pub remove
-                pub remove_all
-                pub with
-                pub with_all
-                pub without
-                pub without_all
+                // pub const fn get(&self, index: u32) -> bool
                 pub get
+                // pub const fn set(&mut self, index: u32, on: bool) -> &mut Self
                 pub set
+                // pub const fn swap(&mut self, index: u32, on: bool) -> bool
+                pub swap
+                // pub const fn from_index(index: u32) -> Self
                 pub from_index
+                // pub const fn add(&mut self, add: Self) -> &mut Self
+                pub add
+                // pub const fn add_all(&mut self, flags: &[Self]) -> &mut Self
+                pub add_all
+                // pub const fn remove(&mut self, remove: Self) -> &mut Self
+                pub remove
+                // pub const fn remove_all(&mut self, flags: &[Self]) -> &mut Self
+                pub remove_all
+                // pub const fn with(self, flag: Self) -> Self
+                pub with
+                // pub const fn with_all(self, flags: &[Self]) -> Self
+                pub with_all
+                // pub const fn without(self, flag: Self) -> Self
+                pub without
+                // pub const fn without_all(self, flags: &[Self]) -> Self
+                pub without_all
+                // pub const fn has_all(&self, other: Self) -> bool
                 pub has_all
+                // pub const fn has_none(&self, other: Self) -> bool
                 pub has_none
+                // pub const fn has_any(&self, other: Self) -> bool
                 pub has_any
+                // pub const fn masks(&self) -> &[MaskTy]
                 pub masks
+                // pub const fn masks_mut(&mut self) -> &mut [MaskTy]
                 pub masks_mut
+                // pub const fn into_inner(self) -> [MaskTy; MaskCount]
                 pub into_inner
+                // pub const fn as_bytes(&self) -> &[u8]
                 pub as_bytes
+                // pub const fn as_mut_bytes(&mut self) -> &mut [u8]
                 pub as_mut_bytes
+                // pub const fn to_be_bytes(self) -> [u8; size_of::<Self>()]
                 pub to_be_bytes
-                pub to_le_bytes
+                // pub const fn from_be_bytes(bytes: [u8; size_of::<Self>()]) -> Self
                 pub from_be_bytes
+                // pub const fn to_le_bytes(self) -> [u8; size_of::<Self>()]
+                pub to_le_bytes
+                // pub const fn from_le_bytes(bytes: [u8; size_of::<Self>()]) -> Self
                 pub from_le_bytes
+                // pub const fn to_ne_bytes(self) -> [u8; size_of::<Self>()]
+                pub to_ne_bytes
+                // pub const fn from_ne_bytes(bytes: [u8; size_of::<Self>()]) -> Self
+                pub from_ne_bytes
+                // pub const fn not(self) -> Self
                 pub not
+                // pub const fn and(self, rhs: Self) -> Self
                 pub and
+                // pub const fn or(self, rhs: Self) -> Self
                 pub or
-                pub nand
-                pub nor
+                // pub const fn xor(self, rhs: Self) -> Self
                 pub xor
+                // pub const fn nand(self, rhs: Self) -> Self
+                pub nand
+                // pub const fn nor(self, rhs: Self) -> Self
+                pub nor
+                // pub const fn xnor(self, rhs: Self) -> Self
                 pub xnor
+                // pub const fn imply(self, rhs: Self) -> Self
                 pub imply
+                // pub const fn nimply(self, rhs: Self) -> Self
                 pub nimply
+                // pub const fn eq(self, rhs: Self) -> bool
                 pub eq
+                // pub const fn ne(self, rhs: Self) -> bool
                 pub ne
             ]
         }
     }
     
-    #[inline]
+    #[inline(always)]
     fn insert(&mut self, key: Ident, item: OverrideItem) -> Option<OverrideItem> {
         self.items.insert(key, item)
     }
@@ -140,6 +191,14 @@ impl OverrideBlock {
             item.new_ident.as_ref()
         } else {
             None
+        }
+    }
+    
+    pub fn get_vis(&self, key: &Ident) -> &Vis {
+        if let Some(item) = self.items.get(key) {
+            &item.vis
+        } else {
+            panic!("Identifier not found.");
         }
     }
 }
@@ -182,6 +241,9 @@ impl Parse for OverrideBlock {
     }
 }
 
+// This is meant to be used on the associated functions impl block.
+// Be careful of its usage, because it only mutates paths that start
+// with `Self` or `self`.
 impl VisitMut for OverrideBlock {
     fn visit_item_fn_mut(&mut self, i: &mut syn::ItemFn) {
         if let Some(item) = self.items.get(&i.sig.ident) {
@@ -215,7 +277,12 @@ impl VisitMut for OverrideBlock {
                 return;
             }
             let first = &exp.path.segments[0].ident;
-            if first != "self" {
+            let guard = const { ["self", "builder"] }
+                .into_iter()
+                .all(|name| {
+                    first != name
+                });
+            if guard {
                 return;
             }
             let second = &mut exp.path.segments[1].ident;

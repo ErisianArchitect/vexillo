@@ -1,173 +1,218 @@
 mod internal;
-pub use internal::*;
+pub use internal::{
+    ConstCounter,
+    MaskIndex,
+    MustBeUnsignedInt,
+    const_cmp_str,
+    mask_type_check,
+    subslice,
+    subslice_mut,
+};
 pub use vexproc::{flags};
 
-#[allow(non_upper_case_globals)]
-flags!{
-    // Define type with `vis struct Name(vis [FlagIntType]);
-    // FlagIntType must be one of the following: u8, u16, u32, or u64.
-    // The FlagIntType determines the type to use for bit masks. `vis` determines
-    // visibility. Default visibility is private.
-    /// Example flags struct.
-    pub struct ExampleFlags(pub [u64]);
-    // Optional:
-    override {
-        // Change name or visibility of builtin functions/constants.
-        // You can not remove these builtin functions as they might be necessary for certain
-        // functionality to work. You can hide them by modifying their visibility.
-        // Creation
-        // vis original_name: new_name
-        // use priv to make it private.
-        // no visibility modifier means that it will use the default visibility, which is `pub` for
-        // most of the builtin functions.
-        pub none: empty
-        pub all: full
-        pub new: create
-        pub union
-        pub union_without
-        pub try_find
-        pub find
-        pub find_or
-        pub find_or_none
-        pub count_ones
-        pub count_zeros
-        pub add
-        pub add_all
-        pub remove
-        pub remove_all
-        pub with
-        pub with_all
-        pub without
-        pub without_all
-        pub get
-        pub set
-        pub from_index
-        pub has_all
-        pub has_none
-        pub has_any
-        pub masks
-        pub masks_mut
-        pub into_inner
-        pub as_bytes
-        pub as_mut_bytes
-        pub to_be_bytes
-        pub to_le_bytes
-        pub from_be_bytes
-        pub from_le_bytes
-        // Bitwise logic
-        pub not
-        pub and
-        pub or
-        pub nand
-        pub nor
-        pub xor
-        pub xnor
-        pub imply
-        pub nimply
-        // Comparisons
-        pub eq
-        pub ne
-    }
-    pub const {
-        FLAG0
-        // Declaration
-        priv DECLARATION
-        // Group
-        #[doc = "hello, world"]
-        pub GROUP: [
-            + FLAG0
-            ALPHA
-            BETA
-            CAPPA
-        ]
-        // Empty group to specify no flags set.
-        pub TEST: []
-        pub ALL: [
-            // [vis] <identifier> is a flag declaration. These flags will be assigned a single bit, in the order that they appear.
-            APPLE
-            BANANA
-            STRAWBERRY
-            pub FRUIT: [
-                // Use + to add flags, use | to join them together.
-                + APPLE | BANANA | STRAWBERRY
-                // Alternatively, it looks nice when you put them all on the same line:
-                // + APPLE
-                // | BANANA
-                // | STRAWBERRY
-                // Use - to remove flags.
-                // This removes BANANA and STRAWBERRY.
-                - BANANA
-                | STRAWBERRY
-            ]
-            // Alternatively, you could have declared the fruit inside of the FRUIT group.
-            pub PUBLIC: [
-                // All flags in PUBLIC will be pub unless otherwise specified.
-                // These are all public single flag consts.
-                ONE
-                TWO
-                THREE
-            ]
-        ]
-        // You can bind a flag to another name with this simple trick:
-        pub FULL: [+ALL]
-    }
-}
+// flags!{
+//     // Define type with `vis struct Name(vis [FlagIntType]);
+//     // FlagIntType must be one of the following: u8, u16, u32, or u64.
+//     // The FlagIntType determines the type to use for bit masks. `vis` determines
+//     // visibility. Default visibility is private.
+//     /// Example flags struct.
+//     pub struct ExampleFlags(pub [u64]);
+//     // Optional:
+//     override {
+//         // Change name or visibility of builtin functions/constants.
+//         // You can not remove these builtin functions as they might be necessary for certain
+//         // functionality to work. You can hide them by modifying their visibility.
+//         // Creation
+//         // vis original_name: new_name
+//         // use priv to make it private.
+//         // no visibility modifier means that it will use the default visibility, which is `pub` for
+//         // most of the builtin functions.
+//         pub none: empty
+//         pub all: full
+//         pub new: create
+//         pub union
+//         pub union_without
+//         pub try_find
+//         pub find
+//         pub find_or
+//         pub find_or_none
+//         pub count_ones
+//         pub count_zeros
+//         pub add
+//         pub add_all
+//         pub remove
+//         pub remove_all
+//         pub with
+//         pub with_all
+//         pub without
+//         pub without_all
+//         pub get
+//         pub set
+//         pub from_index
+//         pub has_all
+//         pub has_none
+//         pub has_any
+//         pub masks
+//         pub masks_mut
+//         pub into_inner
+//         pub as_bytes
+//         pub as_mut_bytes
+//         pub to_be_bytes
+//         pub to_le_bytes
+//         pub to_ne_bytes
+//         pub from_be_bytes
+//         pub from_le_bytes
+//         pub from_ne_bytes
+//         // Bitwise logic
+//         pub not
+//         pub and
+//         pub or
+//         pub nand
+//         pub nor
+//         pub xor
+//         pub xnor
+//         pub imply
+//         pub nimply
+//         // Comparisons
+//         pub eq
+//         pub ne
+//     }
+//     pub const {
+//         FLAG0
+//         // Declaration
+//         priv DECLARATION
+//         // Group
+//         #[doc = "hello, world"]
+//         pub GROUP: [
+//             + FLAG0
+//             ALPHA
+//             BETA
+//             CAPPA
+//         ]
+//         // Empty group to specify no flags set.
+//         pub TEST: []
+//         pub FLAGS: [
+//             // [vis] <identifier> is a flag declaration. These flags will be assigned a single bit, in the order that they appear.
+//             APPLE
+//             BANANA
+//             STRAWBERRY
+//             pub FRUIT: [
+//                 // Use + to add flags, use | to join them together.
+//                 + APPLE | BANANA | STRAWBERRY
+//                 // Alternatively, it looks nice when you put them all on the same line:
+//                 // + APPLE
+//                 // | BANANA
+//                 // | STRAWBERRY
+//                 // Use - to remove flags.
+//                 // This removes BANANA and STRAWBERRY.
+//                 - BANANA
+//                 | STRAWBERRY
+//             ]
+//             // Alternatively, you could have declared the fruit inside of the FRUIT group.
+//             pub PUBLIC: [
+//                 // All flags in PUBLIC will be pub unless otherwise specified.
+//                 // These are all public single flag consts.
+//                 ONE
+//                 TWO
+//                 THREE
+//             ]
+//         ]
+//         // You can bind a flag to another name with this simple trick:
+//         pub FULL: [+ALL]
+//     }
+// }
+
+// flags!(
+//     pub struct Flags(pub [u8]);
+//     pub const {
+//         // Hide first flag for no apparent reason.
+//         priv FLAG0
+//         priv FLAG1
+//         GROUP0: [
+//             + FLAG0
+//             | FLAG1
+//         ]
+//     }
+// );
+
+// flags!{
+//     #[doc = "Permissions"]
+//     pub struct Perms(pub [u8]);
+//     // Since the root is pub, all flags within the root without an
+//     // explicit visibility modifier will also be pub.
+//     pub const {
+//         OWNER: [
+//             GRANT_ADMIN
+//             REVOKE_ADMIN
+//             SHUTDOWN_SERVER
+//             CLEAR_LOG
+//             ADMIN: [
+//                 GRANT_SUPER
+//                 REVOKE_SUPER
+//                 CREATE_CHANNEL
+//                 DELETE_CHANNEL
+//                 RENAME_CHANNEL
+//                 RESTART_SERVER
+//                 SUPER: [
+//                     GRANT_MOD
+//                     REVOKE_MOD
+//                     MOD: [
+//                         /// Gives access to mod channels
+//                         MOD_CHANNELS
+//                         BAN_USER
+//                         UNBAN_USER
+//                         APPROVE_USER
+//                         USER: [
+//                             /// Gives access to user channels.
+//                             USER_CHANNELS
+//                             GUEST: [
+//                                 /// Gives access to the lobby.
+//                                 LOBBY
+//                                 /// Allows to message the mods.
+//                                 MESSAGE_MODS
+//                             ]
+//                         ]
+//                     ]
+//                 ]
+//             ]
+//         ]
+//     }
+// }
 
 flags!(
-    pub struct Flags(pub [u8]);
+    pub struct Flags(pub [u64]);
     pub const {
-        // Hide first flag for no apparent reason.
-        priv FLAG0
-        priv FLAG1
-        GROUP0: [
-            + FLAG0
-            | FLAG1
+        UNUSED
+        FLAG
+        GROUP: [
+            + FLAG
+            FOO
+            BAR
+            BAZ
         ]
     }
 );
 
-flags!{
-    #[doc = "Permissions"]
-    pub struct Perms(pub [u8]);
-    // Since the root is pub, all flags within the root without an
-    // explicit visibility modifier will also be pub.
-    pub const {
-        OWNER: [
-            GRANT_ADMIN
-            REVOKE_ADMIN
-            SHUTDOWN_SERVER
-            CLEAR_LOG
-            ADMIN: [
-                GRANT_SUPER
-                REVOKE_SUPER
-                CREATE_CHANNEL
-                DELETE_CHANNEL
-                RENAME_CHANNEL
-                RESTART_SERVER
-                SUPER: [
-                    GRANT_MOD
-                    REVOKE_MOD
-                    MOD: [
-                        /// Gives access to mod channels
-                        MOD_CHANNELS
-                        BAN_USER
-                        UNBAN_USER
-                        APPROVE_USER
-                        USER: [
-                            /// Gives access to user channels.
-                            USER_CHANNELS
-                            GUEST: [
-                                /// Gives access to the lobby.
-                                LOBBY
-                                /// Allows to message the mods.
-                                MESSAGE_MODS
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-        ]
-    }
+#[test]
+fn flags_test() {
+    
+    let flags = Flags::FLAG;
+    let ones = flags.count_ones();
+    assert_eq!(ones, 1);
+    let bytes = flags.to_be_bytes();
+    let ser_flags = Flags::from_be_bytes(bytes);
+    assert_eq!(flags, ser_flags);
+    let group = Flags::GROUP;
+    assert!(group.has_all(Flags::FLAG));
+    assert!(group.has_all(Flags::FOO));
+    assert!(group.has_all(Flags::BAR));
+    assert!(group.has_all(Flags::BAZ));
+    assert!(group.has_all(Flags::GROUP));
+    let not_group = group.not();
+    assert!(group.has_none(not_group));
+    assert!(group.has_none(Flags::UNUSED));
+    assert!(group.eq(group));
+    assert!(group.ne(flags));
 }
 
 /*
