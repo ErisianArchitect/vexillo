@@ -213,6 +213,7 @@ fn flags_test() {
     assert!(group.has_none(Flags::UNUSED));
     assert!(group.eq(group));
     assert!(group.ne(flags));
+    assert!(group.with(Flags::UNUSED).has_all(Flags::union(&[Flags::GROUP, Flags::UNUSED])));
 }
 
 /*
