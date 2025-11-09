@@ -256,6 +256,31 @@ pub struct FlagTables<T: Flags, const TABLE_LEN: usize, const SINGLE_COUNT: usiz
     pub bit_ordered_group_indices: [u16; GROUP_COUNT],
 }
 
+#[derive(Clone, Copy)]
+pub struct FlagRows<T: Flags> {
+    pub rows: &'static [FlagRow<T>],
+}
+
+impl<T: Flags> FlagRows<T> {
+    #[must_use]
+    #[inline(always)]
+    pub const fn new(rows: &'static [FlagRow<T>]) -> Self {
+        Self { rows }
+    }
+    
+    #[must_use]
+    #[inline(always)]
+    pub const fn rows(&self, range: Range<usize>) -> FlagRows<T> {
+        FlagRows::new(crate::subslice(self.rows, range))
+    }
+    
+    #[must_use]
+    #[inline(always)]
+    pub const fn row(&self, index: usize) -> &'static FlagRow<T> {
+        &self.rows[index]
+    }
+}
+
 impl<
     T: Flags,
     const TABLE_LEN: usize,
@@ -294,37 +319,37 @@ impl<
     
     #[must_use]
     #[inline(always)]
-    pub const fn row(&self, index: u16) -> &FlagRow<T> {
+    pub const fn row(&'static self, index: u16) -> &'static FlagRow<T> {
         &self.rows[index as usize]
     }
     
     #[must_use]
     #[inline(always)]
-    pub const fn rows(&self, range: Range<usize>) -> &[FlagRow<T>] {
-        crate::internal::subslice(&self.rows, range)
+    pub const fn rows(&'static self, range: Range<usize>) -> FlagRows<T> {
+        FlagRows::new(crate::subslice(&self.rows, range))
     }
     
     #[must_use]
     #[inline(always)]
-    pub const fn singles(&self) -> &[FlagRow<T>] {
+    pub const fn singles(&'static self) -> FlagRows<T> {
         self.rows(Self::singles_range())
     }
     
     #[must_use]
     #[inline(always)]
-    pub const fn groups(&self) -> &[FlagRow<T>] {
+    pub const fn groups(&'static self) -> FlagRows<T> {
         self.rows(Self::groups_range())
     }
     
     #[must_use]
     #[inline(always)]
-    pub const fn name(&self, index: u16) -> &'static str {
+    pub const fn name(&'static self, index: u16) -> &'static str {
         self.row(index).name
     }
     
     #[must_use]
     #[inline(always)]
-    pub const fn value(&self, index: u16) -> T {
+    pub const fn value(&'static self, index: u16) -> T {
         self.row(index).value
     }
     
@@ -352,7 +377,7 @@ impl<
     #[inline]
     #[must_use]
     #[track_caller]
-    const fn upper_bit_count_search(&self, bits: u32, range: Range<usize>) -> usize {
+    const fn upper_bit_count_search(&'static self, bits: u32, range: Range<usize>) -> usize {
         let start = range.start;
         Self::bit_count_binary_search(
             bits,
@@ -364,7 +389,7 @@ impl<
     #[inline]
     #[must_use]
     #[track_caller]
-    const fn upper_bit_count_search_full(&self, bits: u32) -> usize {
+    const fn upper_bit_count_search_full(&'static self, bits: u32) -> usize {
         self.upper_bit_count_search(
             bits,
             0..self.bit_ordered_group_indices.len()

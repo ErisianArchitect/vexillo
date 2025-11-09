@@ -1,0 +1,1 @@
+Vexillo is a crate for creating flag bitmask types.
