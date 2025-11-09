@@ -99,11 +99,11 @@ impl OverrideBlock {
                 pub find_or
                 // pub const fn find_or_none(&str) -> Self
                 pub find_or_none
-                // pub const fn count_ones(&self) -> u32
+                // pub const fn count_ones(self) -> u32
                 pub count_ones
-                // pub const fn count_zeros(&self) -> u32
+                // pub const fn count_zeros(self) -> u32
                 pub count_zeros
-                // pub const fn get(&self, index: u32) -> bool
+                // pub const fn get(self, index: u32) -> bool
                 pub get
                 // pub const fn set(&mut self, index: u32, on: bool) -> &mut Self
                 pub set
@@ -127,16 +127,16 @@ impl OverrideBlock {
                 pub without
                 // pub const fn without_all(self, flags: &[Self]) -> Self
                 pub without_all
-                // pub const fn has_all(&self, other: Self) -> bool
+                // pub const fn has_all(self, other: Self) -> bool
                 pub has_all
-                // pub const fn has_none(&self, other: Self) -> bool
+                // pub const fn has_none(self, other: Self) -> bool
                 pub has_none
-                // pub const fn has_any(&self, other: Self) -> bool
+                // pub const fn has_any(self, other: Self) -> bool
                 pub has_any
-                // pub const fn masks(&self) -> &[MaskTy]
-                pub masks
-                // pub const fn masks_mut(&mut self) -> &mut [MaskTy]
-                pub masks_mut
+                // pub const fn as_slice(&self) -> &[MaskTy]
+                pub as_slice
+                // pub const fn as_mut_slice(&mut self) -> &mut [MaskTy]
+                pub as_mut_slice
                 // pub const fn into_inner(self) -> [MaskTy; MaskCount]
                 pub into_inner
                 // pub const fn as_bytes(&self) -> &[u8]

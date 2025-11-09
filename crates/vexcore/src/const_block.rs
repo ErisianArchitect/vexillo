@@ -324,25 +324,19 @@ static RESERVED_CONST_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| 
         // pub
         "GROUP_FLAG_COUNT",
         // pub
+        "TOTAL_FLAG_COUNT",
+        // pub
         "BITS",
         // pub
         "MASK_BITS",
         // pub
         "MASK_COUNT",
         // pub
-        "TOTAL_FLAG_COUNT",
-        // pub
         "NONE",
         // pub
         "ALL",
         // priv
-        "BIT_COUNT_DESCENDING_FLAGS",
-        // priv
-        "ORDERED_SINGLE_FLAGS",
-        // priv
-        "ORDERED_GROUP_FLAGS",
-        // priv
-        "ORDERED_FLAGS",
+        "TABLES",
     ])
 });
 
@@ -475,16 +469,16 @@ impl Parse for ConstBlock {
         _=input.parse::<Token![const]>()?;
         let inner;
         braced!(inner in input);
-        let mut groups = Vec::new();
+        let mut items = Vec::new();
         while !inner.is_empty() {
-            groups.push(inner.parse()?);
+            items.push(inner.parse()?);
         }
-        if groups.is_empty() {
+        if items.is_empty() {
             return Err(Error::new(input.span(), "Must declare at least one flag constant."));
         }
         Self {
             vis,
-            items: groups,
+            items,
         }.verify()
     }
 }

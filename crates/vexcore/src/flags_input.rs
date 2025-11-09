@@ -3,12 +3,12 @@ use std::{sync::Mutex};
 use quote::{quote, ToTokens};
 use syn::{Ident, parse::Parse, visit_mut::VisitMut};
 
-use crate::{const_block::ConstBlock, get_vexillo_name, override_block::OverrideBlock, type_def::TypeDef};
+use crate::{const_block::{ConstBlock, ConstBuildResult}, get_vexillo_name, override_block::OverrideBlock, type_def::TypeDef};
 
 pub struct FlagsInput {
     pub type_def: TypeDef,
     pub config: Mutex<OverrideBlock>,
-    pub consts: ConstBlock,
+    pub consts: ConstBuildResult,
 }
 
 impl FlagsInput {
@@ -21,7 +21,15 @@ impl Parse for FlagsInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let type_def = input.parse::<TypeDef>()?;
         let config = input.parse::<OverrideBlock>()?;
-        let consts = input.parse::<ConstBlock>()?;
+        let consts = input.parse::<ConstBlock>()?.build();
+        if (consts.singles.len() + consts.groups.len()) > 65536 {
+            return Err(
+                syn::Error::new(
+                    proc_macro2::Span::call_site(),
+                    "Exceeded max flag count of 65536. This limit is for your own sanity."
+                )
+            );
+        }
         Ok(Self {
             type_def,
             config: Mutex::new(config),
@@ -39,34 +47,36 @@ impl ToTokens for FlagsInput {
             mask_vis,
             mask_type,
         } = &self.type_def;
-        let const_build = self.consts.build();
-        let single_flag_count = const_build.singles.len();
-        let group_flag_count = const_build.groups.len();
+        let single_flag_count = self.consts.singles.len();
+        let group_flag_count = self.consts.groups.len();
         let add_fn = syn::parse_quote!(add);
         let config = self.config.lock().unwrap();
         let add_fn = config.get_alt(&syn::parse_quote!(add)).unwrap_or(&add_fn);
-        let all_builder = const_build.singles.iter()
+        let all_builder = self.consts.singles.iter()
             .map(|single| {
                 let ident = &single.ident;
                 quote!(
                     builder.#add_fn(#type_name::#ident);
                 )
             }).collect::<proc_macro2::TokenStream>();
-        let flag_consts = const_build.tokenize(&config);
+        let flag_consts = self.consts.tokenize(&config);
         drop(config);
         let builtin_consts = quote!{
+            // ################################
+            // #          CONSTANTS           #
+            // ################################
             pub const SINGLE_FLAG_COUNT: usize = #single_flag_count;
             pub const GROUP_FLAG_COUNT: usize = #group_flag_count;
+            pub const TOTAL_FLAG_COUNT: usize = #type_name::SINGLE_FLAG_COUNT + #type_name::GROUP_FLAG_COUNT;
             pub const BITS: u32 = (#type_name::SINGLE_FLAG_COUNT as u32).next_multiple_of(#type_name::MASK_BITS);
             pub const MASK_BITS: u32 = #mask_type::BITS;
             pub const MASK_SIZE: usize = core::mem::size_of::<#mask_type>();
             pub const MASK_COUNT: usize = {
-                const MASK_BITS: usize = #type_name::MASK_BITS as usize;
-                const MASK_SIZE_SUB1: usize = MASK_BITS - 1;
-                (#type_name::SINGLE_FLAG_COUNT + MASK_SIZE_SUB1) / MASK_BITS
+                let mask_bits = #type_name::MASK_BITS as usize;
+                let mask_bits_sub1 = mask_bits - 1;
+                (#type_name::SINGLE_FLAG_COUNT + mask_bits_sub1) / mask_bits
             };
             const LAST_MASK_INDEX: usize = #type_name::MASK_COUNT - 1;
-            pub const TOTAL_FLAG_COUNT: usize = #type_name::SINGLE_FLAG_COUNT + #type_name::GROUP_FLAG_COUNT;
             pub const NONE: #type_name = #type_name { masks: [0; #type_name::MASK_COUNT] };
             pub const ALL: #type_name = {
                 let mut builder = #type_name::new();
@@ -78,9 +88,12 @@ impl ToTokens for FlagsInput {
         let vexillo = crate::get_vexillo_name();
         tokens.extend(quote!(
             #vexillo :: mask_type_check!{#mask_type}
+            // ################################
+            // #       TYPE DEFINITION        #
+            // ################################
             #(#type_attrs)*
             #[repr(transparent)]
-            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
             #type_vis struct #type_name {
                 #mask_vis masks: [#mask_type; #type_name::MASK_COUNT],
             }
@@ -92,6 +105,29 @@ impl ToTokens for FlagsInput {
             #functions_impl_block
         ));
     }
+}
+
+// [tag]: build arrays
+// ################################
+// #         BUILD ARRAYS         #
+// ################################
+fn build_const_arrays(const_build: &ConstBuildResult) -> proc_macro2::TokenStream {
+    let mut all_flag_names = Vec::with_capacity(
+        const_build.singles.len() + const_build.groups.len(),
+    );
+    all_flag_names.extend(
+        const_build.singles.iter().map(|item| &item.ident)
+    );
+    let singles = all_flag_names.as_slice();
+    let groups_start = all_flag_names.len();
+    all_flag_names.extend(
+        const_build.groups.iter().map(|item| &item.ident)
+    );
+    let groups = &all_flag_names[groups_start..];
+    
+    // First, we need a table.
+    
+    todo!()
 }
 
 macro_rules! docstr {
@@ -149,7 +185,9 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
     
     let type_name = input.type_name();
     let vexillo = get_vexillo_name();
-    
+    // ################################
+    // #          FUNCTIONS           #
+    // ################################
     func!( // new
         #[doc("Create a new [{type_name}] with none of the bits set.")]
         #[must_use]
@@ -196,7 +234,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     // func!( // try_find
-    //     #[doc("Try to find a flag by its name. Returns [None] if it does not exist.")]
+    //     #[doc("Try to find a flag by its name. Returns [None] if the flag was not found.")]
     //     #[must_use]
     //     const fn try_find(name: &str) -> Option<Self> {
     //         use std::cmp::Ordering::*;
@@ -216,7 +254,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
     //     }
     // );
     // func!( // find
-    //     #[doc("Find a flag by its name. Panics if the flag is not found.")]
+    //     #[doc("Find a flag by its name. Panics if the flag was not found.")]
     //     #[must_use]
     //     #[track_caller]
     //     #[inline]
@@ -228,7 +266,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
     //     }
     // );
     // func!( // find_or
-    //     #[doc("Find a flag by its name or return the `default` flag if not found.")]
+    //     #[doc("Find a flag by its name. Returns `default` if the flag was not found.")]
     //     #[must_use]
     //     #[inline]
     //     const fn find_or(name: &str, default: Self) -> Self {
@@ -239,7 +277,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
     //     }
     // );
     // func!( // find_or_none
-    //     #[doc("Find a flag by its name or return [{type_name}::NONE] if not found.")]
+    //     #[doc("Find a flag by its name. Returns [Self::NONE] if the flag was not found.")]
     //     #[must_use]
     //     #[inline]
     //     const fn find_or_none(name: &str) -> Self {
@@ -276,7 +314,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // get
-        #[doc("Get the bit at the given index.")]
+        #[doc("Get the bit at `index`.")]
         #[must_use]
         #[inline]
         const fn get(self, index: u32) -> bool {
@@ -312,7 +350,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // from_index
-        #[doc("Returns a [{type_name}] with a single flag at the given `index` set.")]
+        #[doc("Create a [{type_name}] with the bit at the given `index` set to 1.")]
         #[inline]
         #[must_use]
         const fn from_index(index: u32) -> Self {
@@ -322,7 +360,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // add
-        #[doc("Add all of the bits from `flag`.")]
+        #[doc("Add all of the bits present in `flag`.")]
         #[inline]
         const fn add(&mut self, flag: Self) -> &mut Self {
             let mut index = #vexillo::ConstCounter::new(0usize);
@@ -333,7 +371,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // add_all
-        #[doc("Add all of the bits from all `flags`.")]
+        #[doc("Add all of the bits present in all `flags`.")]
         #[inline]
         const fn add_all(&mut self, flags: &[Self]) -> &mut Self {
             let mut flag_index = 0usize;
@@ -345,7 +383,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // remove
-        #[doc("Remove all of the bits from `flag`.")]
+        #[doc("Remove all of the bits present in `flag`.")]
         #[inline]
         const fn remove(&mut self, flag: Self) -> &mut Self {
             let mut index = #vexillo::ConstCounter::new(0usize);
@@ -356,7 +394,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // remove_all
-        #[doc("Remove all of the bits from all `flags`.")]
+        #[doc("Remove all of the bits present in all `flags`.")]
         #[inline]
         const fn remove_all(&mut self, flags: &[Self]) -> &mut Self {
             let mut flag_index = 0usize;
@@ -404,7 +442,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // has_all
-        #[doc("Test if all bits of `flag` are present.")]
+        #[doc("Test if all bits of `flag` are present in `self`.")]
         #[inline]
         #[must_use]
         const fn has_all(self, flag: Self) -> bool {
@@ -418,7 +456,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // has_none
-        #[doc("Test if none of the bits of `flag` are present.")]
+        #[doc("Test if none of the bits of `flag` are present in `self`.")]
         #[inline]
         #[must_use]
         const fn has_none(self, flag: Self) -> bool {
@@ -432,7 +470,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // has_any
-        #[doc("Test if any of the bits of `flag` are present.")]
+        #[doc("Test if any of the bits of `flag` are present in `self`.")]
         #[inline]
         #[must_use]
         const fn has_any(self, flag: Self) -> bool {
@@ -446,24 +484,24 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     let mask_ty = &input.type_def.mask_type;
-    func!( // masks
-        #[doc("Gets a slice to the inner masks.")]
+    func!( // as_slice
+        #[doc("Returns the inner `masks` as a slice.")]
         #[inline]
         #[must_use]
-        const fn masks(&self) -> &[#mask_ty] {
+        const fn as_slice(&self) -> &[#mask_ty] {
             &self.masks
         }
     );
-    func!( // masks_mut
-        #[doc("Gets a mutable slice to the inner masks.")]
+    func!( // as_mut_slice
+        #[doc("Returns the inner `masks` as a mutable slice.")]
         #[inline]
         #[must_use]
-        const fn masks_mut(&mut self) -> &mut [#mask_ty] {
+        const fn as_mut_slice(&mut self) -> &mut [#mask_ty] {
             &mut self.masks
         }
     );
     func!( // into_inner
-        #[doc("Decompose `self` into the inner masks array.")]
+        #[doc("Decompose `self` into the inner `masks` array.")]
         #[inline]
         #[must_use]
         const fn into_inner(self) -> [#mask_ty; Self::MASK_COUNT] {
@@ -471,7 +509,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     func!( // as_bytes
-        #[doc("Return `self` as a slice of bytes. Endianess is dependent on the target architecture. This is meant to be used for FFI. If you need serialization, use [Self::to_be_bytes], [Self::to_le_bytes], or [Self::to_ne_bytes].")]
+        #[doc("Return `self` as a slice of bytes. Endianess is dependent on the target architecture. This is meant to be used for FFI. If you need serialization, use [{type_name}::to_be_bytes], [{type_name}::to_le_bytes], or [{type_name}::to_ne_bytes].")]
         #[inline]
         #[must_use]
         const fn as_bytes(&self) -> &[u8] {
@@ -485,7 +523,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
     );
     
     func!( // as_mut_bytes
-        #[doc("Return `self` as a mutable slice of bytes. Endianess is dependent on the target architecture. This is meant to be used for FFI. If you need serialization, use [Self::to_be_bytes], [Self::to_le_bytes], or [Self::to_ne_bytes].")]
+        #[doc("Return `self` as a mutable slice of bytes. Endianess is dependent on the target architecture. This is meant to be used for FFI. If you need serialization, use [{type_name}::to_be_bytes], [{type_name}::to_le_bytes], or [{type_name}::to_ne_bytes].")]
         #[inline]
         #[must_use]
         const fn as_mut_bytes(&mut self) -> &mut [u8] {
@@ -506,7 +544,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
             let mut mask_index = #vexillo::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice_mut(&mut bytes, offset, Self::MASK_SIZE);
+                let sub = #vexillo::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
                 let mask_bytes = self.masks[i].to_be_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -522,7 +560,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
             let mut mask_index = #vexillo::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice(&bytes, offset, Self::MASK_SIZE);
+                let sub = #vexillo::subslice(&bytes, offset..offset+Self::MASK_SIZE);
                 let mut mask_bytes = [0u8; Self::MASK_SIZE];
                 mask_bytes.copy_from_slice(&sub);
                 masks[i] = #mask_ty::from_be_bytes(mask_bytes);
@@ -541,7 +579,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
             let mut mask_index = #vexillo::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice_mut(&mut bytes, offset, Self::MASK_SIZE);
+                let sub = #vexillo::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
                 let mask_bytes = self.masks[i].to_le_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -557,7 +595,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
             let mut mask_index = #vexillo::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice(&bytes, offset, Self::MASK_SIZE);
+                let sub = #vexillo::subslice(&bytes, offset..offset+Self::MASK_SIZE);
                 let mut mask_bytes = [0u8; Self::MASK_SIZE];
                 mask_bytes.copy_from_slice(&sub);
                 masks[i] = #mask_ty::from_le_bytes(mask_bytes);
@@ -576,7 +614,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
             let mut mask_index = #vexillo::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice_mut(&mut bytes, offset, Self::MASK_SIZE);
+                let sub = #vexillo::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
                 let mask_bytes = self.masks[i].to_ne_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -592,7 +630,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
             let mut mask_index = #vexillo::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice(&bytes, offset, Self::MASK_SIZE);
+                let sub = #vexillo::subslice(&bytes, offset..offset+Self::MASK_SIZE);
                 let mut mask_bytes = [0u8; Self::MASK_SIZE];
                 mask_bytes.copy_from_slice(&sub);
                 masks[i] = #mask_ty::from_ne_bytes(mask_bytes);

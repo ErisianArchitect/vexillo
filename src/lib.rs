@@ -1,4 +1,5 @@
 mod internal;
+mod shared;
 pub use internal::{
     ConstCounter,
     MaskIndex,
@@ -8,7 +9,10 @@ pub use internal::{
     subslice,
     subslice_mut,
 };
+pub use shared::*;
 pub use vexproc::{flags};
+#[doc(hidden)]
+pub use vexmacro::const_binary_search_fn;
 
 // flags!{
 //     // Define type with `vis struct Name(vis [FlagIntType]);

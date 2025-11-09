@@ -1,11 +1,12 @@
-use std::cmp::Ordering;
+use core::cmp::Ordering;
+use core::ops::Range;
 
 mod private {
     pub trait Sealed {}
 }
 
 #[doc(hidden)]
-pub trait MustBeUnsignedInt: private::Sealed {}
+pub trait MustBeUnsignedInt: private::Sealed + Clone + Copy {}
 
 macro_rules! mark_types {
     ($($type:ty),+$(,)?) => {
@@ -44,12 +45,12 @@ pub const fn const_cmp_str(lhs: &str, rhs: &str) -> Ordering {
     let (min_len, len_cmp) = if lhs.len() <= rhs.len() {
         (
             lhs.len(),
-            std::cmp::Ordering::Less,
+            Ordering::Less,
         )
     } else {
         (
             rhs.len(),
-            std::cmp::Ordering::Greater,
+            Ordering::Greater,
         )
     };
     let mut byte_index = 0usize;
@@ -57,14 +58,14 @@ pub const fn const_cmp_str(lhs: &str, rhs: &str) -> Ordering {
     let rhs = rhs.as_bytes();
     while byte_index < min_len {
         if lhs[byte_index] < rhs[byte_index] {
-            return std::cmp::Ordering::Less;
+            return Ordering::Less;
         } else if lhs[byte_index] > rhs[byte_index] {
-            return std::cmp::Ordering::Greater;
+            return Ordering::Greater;
         }
         byte_index += 1;
     }
     if lhs.len() == rhs.len() {
-        std::cmp::Ordering::Equal
+        Ordering::Equal
     } else {
         len_cmp
     }
@@ -90,7 +91,7 @@ macro_rules! counter_impls {
                 #[must_use]
                 #[inline(always)]
                 pub const fn incr(&mut self) {
-                    self.next();
+                    _=self.next();
                 }
             }
         )*
@@ -98,8 +99,8 @@ macro_rules! counter_impls {
 }
 
 impl<T> ConstCounter<T> {
-    #[inline(always)]
     #[must_use]
+    #[inline(always)]
     pub const fn new(start: T) -> Self {
         Self {
             count: start,
@@ -135,18 +136,34 @@ impl MaskIndex {
 
 #[doc(hidden)]
 #[must_use]
+#[track_caller]
 #[inline(always)]
-pub const fn subslice<T>(slice: &[T], start: usize, len: usize) -> &[T] {
+pub const fn subslice<T>(slice: &[T], range: Range<usize>) -> &[T] {
+    assert!(
+        range.end <= slice.len() && range.start <= range.end,
+        "Range out of bounds."
+    );
     unsafe {
-        core::slice::from_raw_parts(slice.as_ptr().add(start), len)
+        core::slice::from_raw_parts(
+            slice.as_ptr().add(range.start),
+            range.end - range.start
+        )
     }
 }
 
 #[doc(hidden)]
 #[must_use]
+#[track_caller]
 #[inline(always)]
-pub const fn subslice_mut<T>(slice: &mut [T], start: usize, len: usize) -> &mut [T] {
+pub const fn subslice_mut<T>(slice: &mut [T], range: Range<usize>) -> &mut [T] {
+    assert!(
+        range.end <= slice.len() && range.start <= range.end,
+        "Range out of bounds."
+    );
     unsafe {
-        core::slice::from_raw_parts_mut(slice.as_mut_ptr().add(start), len)
+        core::slice::from_raw_parts_mut(
+            slice.as_mut_ptr().add(range.start),
+            range.end - range.start
+        )
     }
 }
