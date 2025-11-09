@@ -1,6 +1,7 @@
 //! Vexillo is a crate for creating bitflags types.
 //! 
 //! # Example
+//! ___
 //! ````````rust,no_run
 //! use vexillo::flags;
 //! 
@@ -41,6 +42,7 @@
 //!     }
 //! );
 //! ````````
+//! ___
 
 mod internal;
 mod shared;
