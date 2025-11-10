@@ -43,6 +43,8 @@ pub trait Flags: 'static
     
     /// The total number of bits for this type. This is equal to `size_of::<Self> * 8`.
     const BITS: u32;
+    const USED_BITS: u32;
+    const UNUSED_BITS: u32;
     /// The total number of bits for the mask type.
     const MASK_BITS: u32;
     /// The total number of bytes for the mask type.
@@ -255,7 +257,7 @@ pub struct FlagTables<T: Flags, const TABLE_LEN: usize, const SINGLE_COUNT: usiz
     pub name_ordered_row_indices: [FlagIndex; TABLE_LEN],
     pub name_ordered_single_indices: [FlagIndex; SINGLE_COUNT],
     pub name_ordered_group_indices: [FlagIndex; GROUP_COUNT],
-    pub bit_ordered_group_indices: [u16; GROUP_COUNT],
+    pub bit_ordered_group_indices: [FlagIndex; GROUP_COUNT],
 }
 
 #[derive(Clone, Copy)]
@@ -356,9 +358,9 @@ impl<
     }
     
     #[inline(always)]
-    const fn rev_bit_count_search_cmp(lhs: u32, rhs_index: u16, context: &[FlagRow<T>]) -> ::core::cmp::Ordering {
+    const fn rev_bit_count_search_cmp(lhs: u32, rhs_index: FlagIndex, context: &[FlagRow<T>]) -> ::core::cmp::Ordering {
         use ::core::cmp::Ordering::*;
-        let rhs = context[rhs_index as usize].bits();
+        let rhs = context[rhs_index.index()].bits();
         if lhs > rhs {
             Less
         } else if lhs < rhs {
@@ -372,7 +374,7 @@ impl<
         use Self::rev_bit_count_search_cmp;
         #[must_use]
         #[inline(always)]
-        const fn bit_count_binary_search(const u32, const u16, context: &[FlagRow<T>]) -> usize
+        const fn bit_count_binary_search(const u32, const FlagIndex, context: &[FlagRow<T>]) -> usize
     );
     
     /// Returns the first index of the row in `self.bit_ordered_group_indices` where `row.bits <= bits`.
