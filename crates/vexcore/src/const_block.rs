@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::LazyLock};
 
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::{
     Attribute, Error, Ident, Token, Visibility, braced, bracketed, parse::Parse
 };
@@ -161,35 +161,13 @@ impl Parse for GroupItem {
     }
 }
 
-struct DeclareGroup {
-    pub vis: Vis,
-    pub declarations: Vec<DeclareFlagItem>,
-}
-
-impl Parse for DeclareGroup {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let vis = input.parse()?;
-        _ = input.parse::<Token![:]>()?;
-        let group;
-        bracketed!(group in input);
-        let mut declarations = Vec::new();
-        while !group.is_empty() {
-            declarations.push(group.parse()?);
-        }
-        Ok(Self {
-            vis,
-            declarations,
-        })
-    }
-}
-
-pub struct ConstSingle {
+pub(crate) struct ConstSingle {
     pub attrs: Vec<Attribute>,
     pub vis: Visibility,
     pub ident: Ident,
 }
 
-pub struct ConstGroup {
+pub(crate) struct ConstGroup {
     pub attrs: Vec<Attribute>,
     pub vis: Visibility,
     pub ident: Ident,
@@ -303,7 +281,7 @@ impl ConstBlockBuilder {
     }
 }
 
-pub struct ConstBlock {
+pub(crate) struct ConstBlock {
     vis: Vis,
     items: Vec<DeclareItem>,
 }
@@ -379,7 +357,7 @@ impl<'a> IdentVerifier<'a> {
     }
 }
 
-pub struct ConstBuildResult {
+pub(crate) struct ConstBuildResult {
     pub singles: Vec<ConstSingle>,
     pub groups: Vec<ConstGroup>,
 }

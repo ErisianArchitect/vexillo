@@ -1,9 +1,4 @@
-use std::{
-    collections::HashSet,
-    sync::LazyLock,
-};
-use proc_macro2::Span;
-use syn::{Attribute, Ident, spanned::Spanned};
+use syn::{Attribute, spanned::Spanned};
 
 pub mod bitmask;
 pub mod const_block;

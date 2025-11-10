@@ -938,25 +938,3 @@ fn build_op_impls(input: &FlagsInput) -> proc_macro2::TokenStream {
     config.visit_token_stream_mut(&mut op_impls);
     op_impls
 }
-
-struct Foo;
-
-impl std::ops::Not for Foo {
-    type Output = Self;
-    fn not(self) -> Self::Output {
-        unimplemented!()
-    }
-}
-
-impl ::core::ops::BitAnd<Self> for Foo {
-    type Output = Self;
-    fn bitand(self, rhs: Self) -> Self::Output {
-        unimplemented!()
-    }
-}
-
-impl ::core::ops::BitAndAssign<Self> for Foo {
-    fn bitand_assign(&mut self, rhs: Self) {
-        unimplemented!()
-    }
-}
