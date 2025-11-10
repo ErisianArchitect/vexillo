@@ -328,6 +328,10 @@ static RESERVED_CONST_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| 
         // pub
         "BITS",
         // pub
+        "UNUSED_BITS",
+        // pub
+        "USED_BITS",
+        // pub
         "MASK_BITS",
         // pub
         "MASK_COUNT",

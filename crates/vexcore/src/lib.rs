@@ -25,14 +25,3 @@ pub fn verify_no_cfg<'a, It: IntoIterator<Item = &'a Attribute>, M: std::fmt::Di
         Ok(())
     })
 }
-
-pub fn get_vexillo_name() -> proc_macro2::TokenStream {
-    let crate_name = proc_macro_crate::crate_name("vexillo").expect("Failed to find \"vexillo\" crate.");
-    match crate_name {
-        proc_macro_crate::FoundCrate::Itself => quote::quote!(crate),
-        proc_macro_crate::FoundCrate::Name(name) => {
-            let ident = syn::Ident::new(&name, proc_macro2::Span::call_site());
-            quote::quote!(#ident)
-        },
-    }
-}

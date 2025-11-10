@@ -1,3 +1,6 @@
+"""
+Builds the doc comment for `lib.rs` from `README.md`.
+"""
 import re, os, sys
 from pathlib import Path
 from hydra.toolbox import text

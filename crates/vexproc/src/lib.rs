@@ -10,7 +10,6 @@ pub fn prototype(_input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn flags(input: TokenStream) -> TokenStream {
-    
     let flags = parse_macro_input!(input as FlagsInput);
     quote!(#flags).into()
 }

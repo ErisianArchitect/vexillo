@@ -31,7 +31,7 @@ macro_rules! combine_results {
 }
 
 /// ```rust,no_run
-/// const fn comparer(lhs: u32, rhs: u32) -> core::cmp::Ordering;
+/// const fn comparer(lhs: u32, rhs: u32) -> ::core::cmp::Ordering;
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
 ///     pub const fn search(const u32) -> Result
@@ -52,13 +52,13 @@ macro_rules! combine_results {
 ///     pub const fn search(const u32) -> usize panic
 /// );
 /// 
-/// const fn comparer(lhs: u32, rhs: u32, context: &[u32]) -> core::cmp::Ordering;
+/// const fn comparer(lhs: u32, rhs: u32, context: &[u32]) -> ::core::cmp::Ordering;
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
 ///     pub const fn search(const u32, context: &[u32]) -> usize
 /// );
 /// 
-/// const fn comparer(lhs: &u32, rhs: &u32) -> core::cmp::Ordering;
+/// const fn comparer(lhs: &u32, rhs: &u32) -> ::core::cmp::Ordering;
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
 ///     pub const fn search(ref u32) -> Result use path::to::comparer
@@ -72,7 +72,6 @@ macro_rules! combine_results {
 ///     pub const fn search(ref u32) -> usize use path::to::comparer
 /// );
 /// ```
-#[doc(hidden)]
 #[macro_export]
 macro_rules! const_binary_search_fn {
     (Ok($result:expr) for Result) => {
@@ -96,8 +95,8 @@ macro_rules! const_binary_search_fn {
     (Err($lo:expr) for usize panic) => {
         panic!("Not found.")
     };
-    (return type for Result) => { core::result::Result<usize, usize> };
-    (return type for Option) => { core::option::Option<usize> };
+    (return type for Result) => { ::core::result::Result<usize, usize> };
+    (return type for Option) => { ::core::option::Option<usize> };
     (return type for usize) => { usize };
     (@reffed ref $expr:expr) => { &$expr };
     (@reffed const $expr:expr) => { $expr };
@@ -122,7 +121,7 @@ macro_rules! const_binary_search_fn {
             sorted: &[$item_ty],
             $($context_name: $ctx_ty,)?
         ) -> $crate::const_binary_search_fn!(return type for $ret) {
-            use core::cmp::Ordering::*;
+            use ::core::cmp::Ordering::*;
             let mut lo = 0usize;
             let mut hi = sorted.len();
             while lo < hi {

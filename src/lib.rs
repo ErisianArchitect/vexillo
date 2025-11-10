@@ -2,9 +2,8 @@
 //! 
 //! # Example
 //! ````````rust,no_run
-//! use vexillo::flags;
 //! 
-//! flags!(
+//! vexillo::flags!(
 //!     // Specify struct visibility, struct name, masks visibility, and masks type.
 //!     pub struct MyFlags(pub [u16]);
 //!     // Declare flag constants.
@@ -40,24 +39,40 @@
 //!         ]
 //!     }
 //! );
+//! 
+//! assert!(
+//!     MyFlags::SUBGROUP.has_all(MyFlags::union(&[
+//!         MyFlags::FLAG5,
+//!         MyFlags::FLAG6,
+//!     ]))
+//! );
+//! 
+//! assert!(
+//!     MyFlags::GROUP1.has_all(MyFlags::union(&[
+//!         MyFlags::FLAG3,
+//!         MyFlags::FLAG4,
+//!         MyFlags::FLAG5,
+//!         MyFlags::FLAG6,
+//!         MyFlags::SUBGROUP,
+//!     ]))
+//!     &&
+//!     MyFlags::GROUP1.has_none(MyFlags::union(&[
+//!         MyFlags::FLAG0,
+//!         MyFlags::FLAG1,
+//!         MyFlags::FLAG2,
+//!     ]))
+//! );
+//! assert_eq!(MyFlags::TOTAL_FLAG_COUNT, 10);
+//! assert_eq!(MyFlags::SINGLE_FLAG_COUNT, 7);
+//! assert_eq!(MyFlags::GROUP_FLAG_COUNT, 3);
+//! 
 //! ````````
 //! ___
 
-mod internal;
-mod shared;
-pub use internal::{
-    ConstCounter,
-    MaskIndex,
-    MustBeUnsignedInt,
-    const_cmp_str,
-    mask_type_check,
-    subslice,
-    subslice_mut,
-};
-pub use shared::*;
-pub use vexproc::{flags};
 #[doc(hidden)]
-pub use vexmacro::const_binary_search_fn;
+pub mod internal;
+mod shared;
+pub use shared::*;
 
 // flags!{
 //     // Define type with `vis struct Name(vis [FlagIntType]);
@@ -184,88 +199,66 @@ pub use vexmacro::const_binary_search_fn;
 //     }
 // );
 
-// flags!{
-//     #[doc = "Permissions"]
-//     pub struct Perms(pub [u8]);
-//     // Since the root is pub, all flags within the root without an
-//     // explicit visibility modifier will also be pub.
-//     pub const {
-//         OWNER: [
-//             GRANT_ADMIN
-//             REVOKE_ADMIN
-//             SHUTDOWN_SERVER
-//             CLEAR_LOG
-//             ADMIN: [
-//                 GRANT_SUPER
-//                 REVOKE_SUPER
-//                 CREATE_CHANNEL
-//                 DELETE_CHANNEL
-//                 RENAME_CHANNEL
-//                 RESTART_SERVER
-//                 SUPER: [
-//                     GRANT_MOD
-//                     REVOKE_MOD
-//                     MOD: [
-//                         /// Gives access to mod channels
-//                         MOD_CHANNELS
-//                         BAN_USER
-//                         UNBAN_USER
-//                         APPROVE_USER
-//                         USER: [
-//                             /// Gives access to user channels.
-//                             USER_CHANNELS
-//                             GUEST: [
-//                                 /// Gives access to the lobby.
-//                                 LOBBY
-//                                 /// Allows to message the mods.
-//                                 MESSAGE_MODS
-//                             ]
-//                         ]
-//                     ]
-//                 ]
-//             ]
-//         ]
-//     }
-// }
+#[macro_export]
+macro_rules! flags {
+    ($($tokens:tt)*) => {
+        $crate::internal::flags_internal!{
+            use $crate;
+            $($tokens)*
+        }
+    };
+}
 
-flags!(
-    pub struct Flags(pub [u64]);
-    pub const {
-        UNUSED
-        FLAG
-        GROUP: [
-            + FLAG
-            FOO
-            BAR
-            BAZ
-        ]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn flags_test() {
+        flags!{
+            #[doc = "Permissions"]
+            pub struct Perms(pub [u8]);
+            // Since the root is pub, all flags within the root without an
+            // explicit visibility modifier will also be pub.
+            pub const {
+                OWNER: [
+                    GRANT_ADMIN
+                    REVOKE_ADMIN
+                    SHUTDOWN_SERVER
+                    CLEAR_LOG
+                    ADMIN: [
+                        GRANT_SUPER
+                        REVOKE_SUPER
+                        CREATE_CHANNEL
+                        DELETE_CHANNEL
+                        RENAME_CHANNEL
+                        RESTART_SERVER
+                        SUPER: [
+                            GRANT_MOD
+                            REVOKE_MOD
+                            MOD: [
+                                /// Gives access to mod channels
+                                MOD_CHANNELS
+                                BAN_USER
+                                UNBAN_USER
+                                APPROVE_USER
+                                USER: [
+                                    /// Gives access to user channels.
+                                    USER_CHANNELS
+                                    GUEST: [
+                                        /// Gives access to the lobby.
+                                        LOBBY
+                                        /// Allows to message the mods.
+                                        MESSAGE_MODS
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            }
+        }
     }
-);
-
-// TODO: Remove this test before publish.
-#[test]
-fn flags_test() {
-    // This is just so I can check the crate-level documentation with hover.
-    #[allow(unused)]
-    use crate as vexillo;
-    let flags = Flags::FLAG;
-    let ones = flags.count_ones();
-    assert_eq!(ones, 1);
-    let bytes = flags.to_be_bytes();
-    let ser_flags = Flags::from_be_bytes(bytes);
-    assert_eq!(flags, ser_flags);
-    let group = Flags::GROUP;
-    assert!(group.has_all(Flags::FLAG));
-    assert!(group.has_all(Flags::FOO));
-    assert!(group.has_all(Flags::BAR));
-    assert!(group.has_all(Flags::BAZ));
-    assert!(group.has_all(Flags::GROUP));
-    let not_group = group.not();
-    assert!(group.has_none(not_group));
-    assert!(group.has_none(Flags::UNUSED));
-    assert!(group.eq(group));
-    assert!(group.ne(flags));
-    assert!(group.with(Flags::UNUSED).has_all(Flags::union(&[Flags::GROUP, Flags::UNUSED])));
 }
 
 /*

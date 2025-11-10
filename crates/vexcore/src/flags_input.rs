@@ -1,11 +1,12 @@
 use std::{sync::Mutex};
 
 use quote::{quote, ToTokens};
-use syn::{Ident, parse::Parse, visit_mut::VisitMut};
+use syn::{Ident, Path, Token, parse::Parse, visit_mut::VisitMut};
 
-use crate::{const_block::{ConstBlock, ConstBuildResult}, get_vexillo_name, override_block::OverrideBlock, type_def::TypeDef};
+use crate::{const_block::{ConstBlock, ConstBuildResult}, override_block::OverrideBlock, type_def::TypeDef};
 
 pub struct FlagsInput {
+    pub vexillo_crate: Path,
     pub type_def: TypeDef,
     pub config: Mutex<OverrideBlock>,
     pub consts: ConstBuildResult,
@@ -19,6 +20,9 @@ impl FlagsInput {
 
 impl Parse for FlagsInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        _=input.parse::<Token![use]>()?;
+        let vexillo_crate = input.parse()?;
+        _=input.parse::<Token![;]>()?;
         let type_def = input.parse::<TypeDef>()?;
         let config = input.parse::<OverrideBlock>()?;
         let consts = input.parse::<ConstBlock>()?.build();
@@ -31,6 +35,7 @@ impl Parse for FlagsInput {
             );
         }
         Ok(Self {
+            vexillo_crate,
             type_def,
             config: Mutex::new(config),
             consts,
@@ -69,8 +74,10 @@ impl ToTokens for FlagsInput {
             pub const GROUP_FLAG_COUNT: usize = #group_flag_count;
             pub const TOTAL_FLAG_COUNT: usize = #type_name::SINGLE_FLAG_COUNT + #type_name::GROUP_FLAG_COUNT;
             pub const BITS: u32 = (#type_name::SINGLE_FLAG_COUNT as u32).next_multiple_of(#type_name::MASK_BITS);
+            pub const UNUSED_BITS: u32 = (#type_name::BITS - #type_name::SINGLE_FLAG_COUNT as u32);
+            pub const USED_BITS: u32 = (#type_name::BITS - #type_name::UNUSED_BITS);
             pub const MASK_BITS: u32 = #mask_type::BITS;
-            pub const MASK_SIZE: usize = core::mem::size_of::<#mask_type>();
+            pub const MASK_SIZE: usize = ::core::mem::size_of::<#mask_type>();
             pub const MASK_COUNT: usize = {
                 let mask_bits = #type_name::MASK_BITS as usize;
                 let mask_bits_sub1 = mask_bits - 1;
@@ -85,9 +92,10 @@ impl ToTokens for FlagsInput {
             };
         };
         let functions_impl_block = build_builtin_functions(self);
-        let vexillo = crate::get_vexillo_name();
+        let op_impls = build_op_impls(self);
+        let vexillo = &self.vexillo_crate;
         tokens.extend(quote!(
-            #vexillo :: mask_type_check!{#mask_type}
+            #vexillo::mask_type_check!{#mask_type}
             // ################################
             // #       TYPE DEFINITION        #
             // ################################
@@ -103,6 +111,8 @@ impl ToTokens for FlagsInput {
             }
             
             #functions_impl_block
+            
+            #op_impls
         ));
     }
 }
@@ -184,7 +194,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
     }
     
     let type_name = input.type_name();
-    let vexillo = get_vexillo_name();
+    let vexillo = &input.vexillo_crate;
     // ################################
     // #          FUNCTIONS           #
     // ################################
@@ -244,7 +254,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
     //         while lo < hi {
     //             let mid = ((hi - lo) / 2) + lo;
     //             let mid_name = Self::ORDERED_FLAGS[mid].0;
-    //             match #vexillo::const_cmp_str(name, mid_name) {
+    //             match #vexillo::internal::const_cmp_str(name, mid_name) {
     //                 Less => hi = mid,
     //                 Equal => return Some(Self::ORDERED_FLAGS[mid].1),
     //                 Greater => lo = mid + 1,
@@ -293,7 +303,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[inline]
         const fn count_ones(self) -> u32 {
             let mut count = 0u32;
-            let mut index = #vexillo::ConstCounter::new(0usize);
+            let mut index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = index.next() {
                 count += self.masks[i].count_ones();
             }
@@ -306,11 +316,11 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[inline]
         const fn count_zeros(self) -> u32 {
             let mut count = 0u32;
-            let mut index = #vexillo::ConstCounter::new(0usize);
+            let mut index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = index.next() {
                 count += self.masks[i].count_zeros();
             }
-            count
+            count - Self::UNUSED_BITS
         }
     );
     func!( // get
@@ -318,7 +328,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         #[inline]
         const fn get(self, index: u32) -> bool {
-            let index = #vexillo::MaskIndex::new(index, Self::MASK_BITS);
+            let index = #vexillo::internal::MaskIndex::new(index, Self::MASK_BITS);
             self.masks[index.mask] & (1 << index.bit) != 0
         }
     );
@@ -326,7 +336,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Set the bit at `index`.")]
         #[inline]
         const fn set(&mut self, index: u32, on: bool) -> &mut Self {
-            let index = #vexillo::MaskIndex::new(index, Self::MASK_BITS);
+            let index = #vexillo::internal::MaskIndex::new(index, Self::MASK_BITS);
             if on {
                 self.masks[index.mask] |= (1 << index.bit);
             } else {
@@ -339,7 +349,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Swap the bit at `index`.")]
         #[inline]
         const fn swap(&mut self, index: u32, on: bool) -> bool {
-            let index = #vexillo::MaskIndex::new(index, Self::MASK_BITS);
+            let index = #vexillo::internal::MaskIndex::new(index, Self::MASK_BITS);
             let old = ((self.masks[index.mask] & (1 << index.bit)) != 0);
             if on {
                 self.masks[index.mask] |= (1 << index.bit);
@@ -363,7 +373,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Add all of the bits present in `flag`.")]
         #[inline]
         const fn add(&mut self, flag: Self) -> &mut Self {
-            let mut index = #vexillo::ConstCounter::new(0usize);
+            let mut index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = index.next() {
                 self.masks[i] |= flag.masks[i];
             }
@@ -386,7 +396,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Remove all of the bits present in `flag`.")]
         #[inline]
         const fn remove(&mut self, flag: Self) -> &mut Self {
-            let mut index = #vexillo::ConstCounter::new(0usize);
+            let mut index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = index.next() {
                 self.masks[i] &= !flag.masks[i];
             }
@@ -446,7 +456,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[inline]
         #[must_use]
         const fn has_all(self, flag: Self) -> bool {
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 if self.masks[i] & flag.masks[i] != flag.masks[i] {
                     return false;
@@ -460,7 +470,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[inline]
         #[must_use]
         const fn has_none(self, flag: Self) -> bool {
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 if self.masks[i] & flag.masks[i] != 0 {
                     return false;
@@ -474,7 +484,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[inline]
         #[must_use]
         const fn has_any(self, flag: Self) -> bool {
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 if self.masks[i] & flag.masks[i] != 0 {
                     return true;
@@ -514,9 +524,9 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn as_bytes(&self) -> &[u8] {
             unsafe {
-                core::slice::from_raw_parts(
+                ::core::slice::from_raw_parts(
                     &self.masks as *const _ as *const u8,
-                    core::mem::size_of::<Self>(),
+                    ::core::mem::size_of::<Self>(),
                 )
             }
         }
@@ -528,9 +538,9 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn as_mut_bytes(&mut self) -> &mut [u8] {
             unsafe {
-                core::slice::from_raw_parts_mut(
+                ::core::slice::from_raw_parts_mut(
                     &mut self.masks as *mut _ as *mut u8,
-                    core::mem::size_of::<Self>(),
+                    ::core::mem::size_of::<Self>(),
                 )
             }
         }
@@ -539,12 +549,12 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Return `self` as Big-Endian bytes.")]
         #[inline]
         #[must_use]
-        const fn to_be_bytes(self) -> [u8; core::mem::size_of::<Self>()] {
-            let mut bytes = [0u8; core::mem::size_of::<Self>()];
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+        const fn to_be_bytes(self) -> [u8; ::core::mem::size_of::<Self>()] {
+            let mut bytes = [0u8; ::core::mem::size_of::<Self>()];
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
+                let sub = #vexillo::internal::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
                 let mask_bytes = self.masks[i].to_be_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -555,12 +565,12 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Create a new [{type_name}] from Big-Endian `bytes`.")]
         #[inline]
         #[must_use]
-        const fn from_be_bytes(bytes: [u8; core::mem::size_of::<Self>()]) -> Self {
+        const fn from_be_bytes(bytes: [u8; ::core::mem::size_of::<Self>()]) -> Self {
             let mut masks = [0; Self::MASK_COUNT];
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice(&bytes, offset..offset+Self::MASK_SIZE);
+                let sub = #vexillo::internal::subslice(&bytes, offset..offset+Self::MASK_SIZE);
                 let mut mask_bytes = [0u8; Self::MASK_SIZE];
                 mask_bytes.copy_from_slice(&sub);
                 masks[i] = #mask_ty::from_be_bytes(mask_bytes);
@@ -574,12 +584,12 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Return `self` as Little-Endian bytes.")]
         #[inline]
         #[must_use]
-        const fn to_le_bytes(self) -> [u8; core::mem::size_of::<Self>()] {
-            let mut bytes = [0u8; core::mem::size_of::<Self>()];
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+        const fn to_le_bytes(self) -> [u8; ::core::mem::size_of::<Self>()] {
+            let mut bytes = [0u8; ::core::mem::size_of::<Self>()];
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
+                let sub = #vexillo::internal::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
                 let mask_bytes = self.masks[i].to_le_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -590,12 +600,12 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Create a new [{type_name}] from Little-Endian `bytes`.")]
         #[inline]
         #[must_use]
-        const fn from_le_bytes(bytes: [u8; core::mem::size_of::<Self>()]) -> Self {
+        const fn from_le_bytes(bytes: [u8; ::core::mem::size_of::<Self>()]) -> Self {
             let mut masks = [0; Self::MASK_COUNT];
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice(&bytes, offset..offset+Self::MASK_SIZE);
+                let sub = #vexillo::internal::subslice(&bytes, offset..offset+Self::MASK_SIZE);
                 let mut mask_bytes = [0u8; Self::MASK_SIZE];
                 mask_bytes.copy_from_slice(&sub);
                 masks[i] = #mask_ty::from_le_bytes(mask_bytes);
@@ -609,12 +619,12 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Return `self` as Native-Endian bytes.")]
         #[inline]
         #[must_use]
-        const fn to_ne_bytes(self) -> [u8; core::mem::size_of::<Self>()] {
-            let mut bytes = [0u8; core::mem::size_of::<Self>()];
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+        const fn to_ne_bytes(self) -> [u8; ::core::mem::size_of::<Self>()] {
+            let mut bytes = [0u8; ::core::mem::size_of::<Self>()];
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
+                let sub = #vexillo::internal::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
                 let mask_bytes = self.masks[i].to_ne_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -625,12 +635,12 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[doc("Create a new [{type_name}] from Native-Endian `bytes`.")]
         #[inline]
         #[must_use]
-        const fn from_ne_bytes(bytes: [u8; core::mem::size_of::<Self>()]) -> Self {
+        const fn from_ne_bytes(bytes: [u8; ::core::mem::size_of::<Self>()]) -> Self {
             let mut masks = [0; Self::MASK_COUNT];
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::subslice(&bytes, offset..offset+Self::MASK_SIZE);
+                let sub = #vexillo::internal::subslice(&bytes, offset..offset+Self::MASK_SIZE);
                 let mut mask_bytes = [0u8; Self::MASK_SIZE];
                 mask_bytes.copy_from_slice(&sub);
                 masks[i] = #mask_ty::from_ne_bytes(mask_bytes);
@@ -646,7 +656,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn not(self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 tmp.masks[i] = !tmp.masks[i];
             }
@@ -661,7 +671,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn and(self, other: Self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 tmp.masks[i] &= other.masks[i];
             }
@@ -674,7 +684,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn or(self, other: Self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 tmp.masks[i] |= other.masks[i];
             }
@@ -687,7 +697,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn xor(self, other: Self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 tmp.masks[i] ^= other.masks[i];
             }
@@ -700,7 +710,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn nand(self, other: Self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 tmp.masks[i] = !(tmp.masks[i] & other.masks[i]);
             }
@@ -714,7 +724,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn nor(self, other: Self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 tmp.masks[i] = !tmp.masks[i] & !other.masks[i];
             }
@@ -728,7 +738,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn xnor(self, other: Self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 tmp.masks[i] = !(tmp.masks[i] ^ other.masks[i]);
             }
@@ -741,7 +751,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn imply(self, other: Self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let a = tmp.masks[i];
                 let b = other.masks[i];
@@ -757,7 +767,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn nimply(self, other: Self) -> Self {
             let mut tmp = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let a = tmp.masks[i];
                 let b = other.masks[i];
@@ -772,7 +782,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn eq(self, other: Self) -> bool {
             let me = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 if me.masks[i] != other.masks[i] {
                     return false;
@@ -787,7 +797,7 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[must_use]
         const fn ne(self, other: Self) -> bool {
             let me = self;
-            let mut mask_index = #vexillo::ConstCounter::new(0usize);
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 if me.masks[i] != other.masks[i] {
                     return true;
@@ -805,5 +815,148 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         }
     );
     config.visit_token_stream_mut(&mut impl_block);
-    quote!(#impl_block)
+    impl_block
+}
+
+fn build_op_impls(input: &FlagsInput) -> proc_macro2::TokenStream {
+    let ty = input.type_name();
+    /*
+    Not,
+    BitAnd, BitAndAssign,
+    BitOr, BitOrAssign,
+    BitXor, BitXorAssign,
+    Add, AddAssign,
+    Sub, SubAssign,
+    Index<u32, Output = bool>
+    Index<usize, Output = bool>
+    */
+    let mut op_impls = quote!(
+        impl ::core::ops::Not for #ty {
+            type Output = Self;
+            #[inline(always)]
+            fn not(self) -> Self {
+                self.not()
+            }
+        }
+        
+        impl ::core::ops::BitAnd<Self> for #ty {
+            type Output = Self;
+            #[inline(always)]
+            fn bitand(self, rhs: Self) -> Self {
+                self.and(rhs)
+            }
+        }
+        
+        impl ::core::ops::BitAndAssign<Self> for #ty {
+            #[inline(always)]
+            fn bitand_assign(&mut self, rhs: Self) {
+                *self = self.and(rhs);
+            }
+        }
+        
+        impl ::core::ops::BitOr<Self> for #ty {
+            type Output = Self;
+            #[inline(always)]
+            fn bitor(self, rhs: Self) -> Self {
+                self.or(rhs)
+            }
+        }
+        
+        impl ::core::ops::BitOrAssign<Self> for #ty {
+            #[inline(always)]
+            fn bitor_assign(&mut self, rhs: Self) {
+                *self = self.or(rhs);
+            }
+        }
+        
+        impl ::core::ops::BitXor<Self> for #ty {
+            type Output = Self;
+            #[inline(always)]
+            fn bitxor(self, rhs: Self) -> Self {
+                self.xor(rhs)
+            }
+        }
+        
+        impl ::core::ops::BitXorAssign<Self> for #ty {
+            #[inline(always)]
+            fn bitxor_assign(&mut self, rhs: Self) {
+                *self = self.xor(rhs);
+            }
+        }
+        
+        impl ::core::ops::Add<Self> for #ty {
+            type Output = Self;
+            #[inline(always)]
+            fn add(self, rhs: Self) -> Self {
+                self.with(rhs)
+            }
+        }
+        
+        impl ::core::ops::AddAssign<Self> for #ty {
+            #[inline(always)]
+            fn add_assign(&mut self, rhs: Self) {
+                self.add(rhs);
+            }
+        }
+        
+        impl ::core::ops::Sub<Self> for #ty {
+            type Output = Self;
+            #[inline(always)]
+            fn sub(self, rhs: Self) -> Self {
+                self.without(rhs)
+            }
+        }
+        
+        impl ::core::ops::SubAssign<Self> for #ty {
+            #[inline(always)]
+            fn sub_assign(&mut self, rhs: Self) {
+                self.remove(rhs);
+            }
+        }
+        
+        impl ::core::ops::Index<u32> for #ty {
+            type Output = bool;
+            #[inline(always)]
+            fn index(&self, index: u32) -> &bool {
+                debug_assert!((index as usize) < Self::SINGLE_FLAG_COUNT, "Out of bounds.");
+                const BOOLS: [bool; 2] = [false, true];
+                &BOOLS[self.get(index) as usize]
+            }
+        }
+        
+        impl ::core::ops::Index<usize> for #ty {
+            type Output = bool;
+            #[inline(always)]
+            fn index(&self, index: usize) -> &bool {
+                debug_assert!(index < Self::SINGLE_FLAG_COUNT, "Out of bounds.");
+                const BOOLS: [bool; 2] = [false, true];
+                &BOOLS[self.get(index as u32) as usize]
+            }
+        }
+    );
+    let mut config = input.config.lock().unwrap();
+    config.visit_token_stream_mut(&mut op_impls);
+    op_impls
+}
+
+struct Foo;
+
+impl std::ops::Not for Foo {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        unimplemented!()
+    }
+}
+
+impl ::core::ops::BitAnd<Self> for Foo {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self::Output {
+        unimplemented!()
+    }
+}
+
+impl ::core::ops::BitAndAssign<Self> for Foo {
+    fn bitand_assign(&mut self, rhs: Self) {
+        unimplemented!()
+    }
 }

@@ -1,6 +1,6 @@
-use core::fmt::Debug;
-use core::hash::Hash;
-use core::ops::{
+use ::core::fmt::Debug;
+use ::core::hash::Hash;
+use ::core::ops::{
     Not,
     BitAnd, BitAndAssign,
     BitOr, BitOrAssign,
@@ -14,6 +14,8 @@ use vexmacro::const_binary_search_fn;
 
 pub trait Flags: 'static
     + Sized
+    + Send
+    + Sync
     + Debug
     + Copy
     + Eq
@@ -271,7 +273,7 @@ impl<T: Flags> FlagRows<T> {
     #[must_use]
     #[inline(always)]
     pub const fn rows(&self, range: Range<usize>) -> FlagRows<T> {
-        FlagRows::new(crate::subslice(self.rows, range))
+        FlagRows::new(crate::internal::subslice(self.rows, range))
     }
     
     #[must_use]
@@ -326,7 +328,7 @@ impl<
     #[must_use]
     #[inline(always)]
     pub const fn rows(&'static self, range: Range<usize>) -> FlagRows<T> {
-        FlagRows::new(crate::subslice(&self.rows, range))
+        FlagRows::new(crate::internal::subslice(&self.rows, range))
     }
     
     #[must_use]
@@ -354,8 +356,8 @@ impl<
     }
     
     #[inline(always)]
-    const fn rev_bit_count_search_cmp(lhs: u32, rhs_index: u16, context: &[FlagRow<T>]) -> core::cmp::Ordering {
-        use core::cmp::Ordering::*;
+    const fn rev_bit_count_search_cmp(lhs: u32, rhs_index: u16, context: &[FlagRow<T>]) -> ::core::cmp::Ordering {
+        use ::core::cmp::Ordering::*;
         let rhs = context[rhs_index as usize].bits();
         if lhs > rhs {
             Less
@@ -381,7 +383,7 @@ impl<
         let start = range.start;
         Self::bit_count_binary_search(
             bits,
-            crate::subslice(&self.bit_ordered_group_indices, range),
+            crate::internal::subslice(&self.bit_ordered_group_indices, range),
             &self.rows
         ) + start
     }

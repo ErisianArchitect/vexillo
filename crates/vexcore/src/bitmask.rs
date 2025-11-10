@@ -47,7 +47,7 @@ impl Bitmask {
     
     #[inline]
     pub fn add(&mut self, other: &Self) -> &mut Self {
-        core::iter::zip(
+        ::core::iter::zip(
             self.masks.iter_mut(),
             other.masks.iter().copied(),
         ).for_each(|(lhs, rhs)| {
@@ -58,7 +58,7 @@ impl Bitmask {
     
     #[inline]
     pub fn remove(&mut self, other: &Self) -> &mut Self {
-        core::iter::zip(
+        ::core::iter::zip(
             self.masks.iter_mut(),
             other.masks.iter().copied(),
         ).for_each(|(lhs, rhs)| {

@@ -2,9 +2,8 @@ Vexillo is a crate for creating bitflags types.
 
 # Example
 ````````rust,no_run
-use vexillo::flags;
 
-flags!(
+vexillo::flags!(
     // Specify struct visibility, struct name, masks visibility, and masks type.
     pub struct MyFlags(pub [u16]);
     // Declare flag constants.
@@ -40,5 +39,32 @@ flags!(
         ]
     }
 );
+
+assert!(
+    MyFlags::SUBGROUP.has_all(MyFlags::union(&[
+        MyFlags::FLAG5,
+        MyFlags::FLAG6,
+    ]))
+);
+
+assert!(
+    MyFlags::GROUP1.has_all(MyFlags::union(&[
+        MyFlags::FLAG3,
+        MyFlags::FLAG4,
+        MyFlags::FLAG5,
+        MyFlags::FLAG6,
+        MyFlags::SUBGROUP,
+    ]))
+    &&
+    MyFlags::GROUP1.has_none(MyFlags::union(&[
+        MyFlags::FLAG0,
+        MyFlags::FLAG1,
+        MyFlags::FLAG2,
+    ]))
+);
+assert_eq!(MyFlags::TOTAL_FLAG_COUNT, 10);
+assert_eq!(MyFlags::SINGLE_FLAG_COUNT, 7);
+assert_eq!(MyFlags::GROUP_FLAG_COUNT, 3);
+
 ````````
 ___

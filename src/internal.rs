@@ -1,11 +1,15 @@
-use core::cmp::Ordering;
-use core::ops::Range;
+use ::core::cmp::Ordering;
+use ::core::ops::Range;
+pub use vexmacro::const_binary_search_fn;
+#[doc(hidden)]
+pub use vexproc::{
+    flags as flags_internal
+};
 
 mod private {
     pub trait Sealed {}
 }
 
-#[doc(hidden)]
 pub trait MustBeUnsignedInt: private::Sealed + Clone + Copy {}
 
 macro_rules! mark_types {
@@ -29,18 +33,16 @@ mark_types!(
     // usize,
 );
 
-#[doc(hidden)]
 pub const fn mask_type_check<MaskType: MustBeUnsignedInt>() {}
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! mask_type_check {
     ($type:ty) => {
-        const _: () = { $crate::mask_type_check::<$type>(); };
+        const _: () = { $crate::internal::mask_type_check::<$type>(); };
     };
 }
 
-#[doc(hidden)]
 pub const fn const_cmp_str(lhs: &str, rhs: &str) -> Ordering {
     let (min_len, len_cmp) = if lhs.len() <= rhs.len() {
         (
@@ -71,7 +73,6 @@ pub const fn const_cmp_str(lhs: &str, rhs: &str) -> Ordering {
     }
 }
 
-#[doc(hidden)]
 pub struct ConstCounter<T> {
     pub count: T,
 }
@@ -116,7 +117,6 @@ counter_impls!(
     usize,
 );
 
-#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct MaskIndex {
     pub mask: usize,
@@ -134,7 +134,6 @@ impl MaskIndex {
     }
 }
 
-#[doc(hidden)]
 #[must_use]
 #[track_caller]
 #[inline(always)]
@@ -144,14 +143,13 @@ pub const fn subslice<T>(slice: &[T], range: Range<usize>) -> &[T] {
         "Range out of bounds."
     );
     unsafe {
-        core::slice::from_raw_parts(
+        ::core::slice::from_raw_parts(
             slice.as_ptr().add(range.start),
             range.end - range.start
         )
     }
 }
 
-#[doc(hidden)]
 #[must_use]
 #[track_caller]
 #[inline(always)]
@@ -161,7 +159,7 @@ pub const fn subslice_mut<T>(slice: &mut [T], range: Range<usize>) -> &mut [T] {
         "Range out of bounds."
     );
     unsafe {
-        core::slice::from_raw_parts_mut(
+        ::core::slice::from_raw_parts_mut(
             slice.as_mut_ptr().add(range.start),
             range.end - range.start
         )
