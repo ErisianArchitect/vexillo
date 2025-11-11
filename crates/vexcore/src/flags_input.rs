@@ -650,130 +650,193 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
             }
         }
     );
+    func!( // not_assign
+        #[doc("Bitwise NOT with assignment.")]
+        #[inline]
+        const fn not_assign(&mut self) -> &mut Self {
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
+            while let i @ 0..Self::MASK_COUNT = mask_index.next() {
+                self.masks[i] = !self.masks[i];
+            }
+            // Ensure that the unused bits are not set.
+            self.masks[Self::LAST_MASK_INDEX] &= Self::ALL.masks[Self::LAST_MASK_INDEX];
+            self
+        }
+    );
     func!( // not
         #[doc("Bitwise NOT.")]
         #[inline]
         #[must_use]
-        const fn not(self) -> Self {
-            let mut tmp = self;
+        const fn not(mut self) -> Self {
+            self.not_assign();
+            self
+        }
+    );
+    func!( // and_assign
+        #[doc("Bitwise AND with assignment.")]
+        #[inline]
+        const fn and_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                tmp.masks[i] = !tmp.masks[i];
+                self.masks[i] &= other.masks[i];
             }
-            // Ensure that the unused bits are not set.
-            tmp.masks[Self::LAST_MASK_INDEX] &= Self::ALL.masks[Self::LAST_MASK_INDEX];
-            tmp
+            self
         }
     );
     func!( // and
         #[doc("Bitwise AND.")]
         #[inline]
         #[must_use]
-        const fn and(self, other: Self) -> Self {
-            let mut tmp = self;
+        const fn and(mut self, other: Self) -> Self {
+            self.and_assign(other);
+            self
+        }
+    );
+    func!( // or_assign
+        #[doc("Bitwise OR with assignment.")]
+        #[inline]
+        const fn or_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                tmp.masks[i] &= other.masks[i];
+                self.masks[i] |= other.masks[i];
             }
-            tmp
+            self
         }
     );
     func!( // or
         #[doc("Bitwise OR.")]
         #[inline]
         #[must_use]
-        const fn or(self, other: Self) -> Self {
-            let mut tmp = self;
+        const fn or(mut self, other: Self) -> Self {
+            self.or_assign(other);
+            self
+        }
+    );
+    func!( // xor_assign
+        #[doc("Bitwise XOR with assignment")]
+        #[inline]
+        const fn xor_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                tmp.masks[i] |= other.masks[i];
+                self.masks[i] ^= other.masks[i];
             }
-            tmp
+            self
         }
     );
     func!( // xor
         #[doc("Bitwise XOR.")]
         #[inline]
         #[must_use]
-        const fn xor(self, other: Self) -> Self {
-            let mut tmp = self;
+        const fn xor(mut self, other: Self) -> Self {
+            self.xor_assign(other);
+            self
+        }
+    );
+    func!( // nand_assign
+        #[doc("Bitwise NAND with assignment.")]
+        #[inline]
+        const fn nand_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                tmp.masks[i] ^= other.masks[i];
+                self.masks[i] = !(self.masks[i] & other.masks[i]);
             }
-            tmp
+            self.masks[Self::LAST_MASK_INDEX] &= Self::ALL.masks[Self::LAST_MASK_INDEX];
+            self
         }
     );
     func!( // nand
         #[doc("Bitwise NAND.")]
         #[inline]
         #[must_use]
-        const fn nand(self, other: Self) -> Self {
-            let mut tmp = self;
+        const fn nand(mut self, other: Self) -> Self {
+            self.nand_assign(other);
+            self
+        }
+    );
+    func!( // nor_assign
+        #[doc("Bitwise NOR with assignment.")]
+        #[inline]
+        const fn nor_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                tmp.masks[i] = !(tmp.masks[i] & other.masks[i]);
+                self.masks[i] = !self.masks[i] & !other.masks[i];
             }
-            tmp.masks[Self::LAST_MASK_INDEX] &= Self::ALL.masks[Self::LAST_MASK_INDEX];
-            tmp
+            self.masks[Self::LAST_MASK_INDEX] &= Self::ALL.masks[Self::LAST_MASK_INDEX];
+            self
         }
     );
     func!( // nor
         #[doc("Bitwise NOR.")]
         #[inline]
         #[must_use]
-        const fn nor(self, other: Self) -> Self {
-            let mut tmp = self;
+        const fn nor(mut self, other: Self) -> Self {
+            self.nor_assign(other);
+            self
+        }
+    );
+    func!( // xnor_assign
+        #[doc("Bitwise XNOR with assignment.")]
+        #[inline]
+        const fn xnor_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                tmp.masks[i] = !tmp.masks[i] & !other.masks[i];
+                self.masks[i] = !(self.masks[i] ^ other.masks[i]);
             }
-            tmp.masks[Self::LAST_MASK_INDEX] &= Self::ALL.masks[Self::LAST_MASK_INDEX];
-            tmp
+            self
         }
     );
     func!( // xnor
         #[doc("Bitwise XNOR.")]
         #[inline]
         #[must_use]
-        const fn xnor(self, other: Self) -> Self {
-            let mut tmp = self;
+        const fn xnor(mut self, other: Self) -> Self {
+            self.xnor_assign(other);
+            self
+        }
+    );
+    func!( // imply_assign
+        #[doc("Bitwise IMPLY with assignment.")]
+        #[inline]
+        const fn imply_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                tmp.masks[i] = !(tmp.masks[i] ^ other.masks[i]);
+                let a = self.masks[i];
+                let b = other.masks[i];
+                self.masks[i] = !a | b;
             }
-            tmp
+            self.masks[Self::LAST_MASK_INDEX] &= Self::ALL.masks[Self::LAST_MASK_INDEX];
+            self
         }
     );
     func!( // imply
         #[doc("Bitwise IMPLY.")]
         #[inline]
         #[must_use]
-        const fn imply(self, other: Self) -> Self {
-            let mut tmp = self;
+        const fn imply(mut self, other: Self) -> Self {
+            self.imply_assign(other);
+            self
+        }
+    );
+    func!( // nimply_assign
+        #[doc("Bitwise NIMPLY with assignment.")]
+        #[inline]
+        const fn nimply_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                let a = tmp.masks[i];
+                let a = self.masks[i];
                 let b = other.masks[i];
-                tmp.masks[i] = !a | b;
+                self.masks[i] = a & !b;
             }
-            tmp.masks[Self::LAST_MASK_INDEX] &= Self::ALL.masks[Self::LAST_MASK_INDEX];
-            tmp
+            self
         }
     );
     func!( // nimply
         #[doc("Bitwise NIMPLY.")]
         #[inline]
         #[must_use]
-        const fn nimply(self, other: Self) -> Self {
-            let mut tmp = self;
-            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
-            while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                let a = tmp.masks[i];
-                let b = other.masks[i];
-                tmp.masks[i] = a & !b;
-            }
-            tmp
+        const fn nimply(mut self, other: Self) -> Self {
+            self.nimply_assign(other);
+            self
         }
     );
     func!( // eq
@@ -796,10 +859,9 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
         #[inline]
         #[must_use]
         const fn ne(self, other: Self) -> bool {
-            let me = self;
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                if me.masks[i] != other.masks[i] {
+                if self.masks[i] != other.masks[i] {
                     return true;
                 }
             }
