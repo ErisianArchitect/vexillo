@@ -155,22 +155,40 @@ impl OverrideBlock {
                 pub to_ne_bytes
                 // pub const fn from_ne_bytes(bytes: [u8; size_of::<Self>()]) -> Self
                 pub from_ne_bytes
+                // pub const fn not_assign(&mut self)
+                pub not_assign
                 // pub const fn not(self) -> Self
                 pub not
+                // pub const fn and_assign(&mut self, rhs: Self)
+                pub and_assign
                 // pub const fn and(self, rhs: Self) -> Self
                 pub and
+                // pub const fn or_assign(&mut self, rhs: Self)
+                pub or_assign
                 // pub const fn or(self, rhs: Self) -> Self
                 pub or
+                // pub const fn xor_assign(&mut self, rhs: Self)
+                pub xor_assign
                 // pub const fn xor(self, rhs: Self) -> Self
                 pub xor
+                // pub const fn nand_assign(&mut self, rhs: Self)
+                pub nand_assign
                 // pub const fn nand(self, rhs: Self) -> Self
                 pub nand
+                // pub const fn nor_assign(&mut self, rhs: Self)
+                pub nor_assign
                 // pub const fn nor(self, rhs: Self) -> Self
                 pub nor
+                // pub const fn xnor_assign(&mut self, rhs: Self)
+                pub xnor_assign
                 // pub const fn xnor(self, rhs: Self) -> Self
                 pub xnor
+                // pub const fn imply_assign(&mut self, rhs: Self)
+                pub imply_assign
                 // pub const fn imply(self, rhs: Self) -> Self
                 pub imply
+                // pub const fn nimply_assign(&mut self, rhs: Self)
+                pub nimply_assign
                 // pub const fn nimply(self, rhs: Self) -> Self
                 pub nimply
                 // pub const fn eq(self, rhs: Self) -> bool
