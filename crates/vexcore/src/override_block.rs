@@ -259,12 +259,29 @@ impl Parse for OverrideBlock {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum OverrideStage {
+    Functions,
+    Operators,
+    // TODO: Enable this when you need it.
+    // FlagsTrait,
+}
+
+pub struct Overrider<'a> {
+    pub overrides: &'a OverrideBlock,
+    pub stage: OverrideStage,
+}
+
 // This is meant to be used on the associated functions impl block.
 // Be careful of its usage, because it only mutates paths that start
 // with `Self` or `self`.
-impl VisitMut for OverrideBlock {
+impl<'a> VisitMut for Overrider<'a> {
     fn visit_item_fn_mut(&mut self, i: &mut syn::ItemFn) {
-        if let Some(item) = self.items.get(&i.sig.ident) {
+        if !matches!(self.stage, OverrideStage::Functions) {
+            syn::visit_mut::visit_item_fn_mut(self, i);
+            return;
+        }
+        if let Some(item) = self.overrides.items.get(&i.sig.ident) {
             let vis = item.vis.resolve(Some(&i.vis));
             i.vis = vis;
             if let Some(alt) = &item.new_ident {
@@ -276,14 +293,16 @@ impl VisitMut for OverrideBlock {
     
     fn visit_path_mut(&mut self, i: &mut syn::Path) {
         if i.segments.len() < 2 {
+            syn::visit_mut::visit_path_mut(self, i);
             return;
         }
         let first = &i.segments[0].ident;
         if first != "Self" {
+            syn::visit_mut::visit_path_mut(self, i);
             return;
         }
         let second = &mut i.segments[1].ident;
-        if let Some(new_ident) = self.get_alt(second) {
+        if let Some(new_ident) = self.overrides.get_alt(second) {
             *second = new_ident.clone();
         }
         syn::visit_mut::visit_path_mut(self, i);
@@ -291,7 +310,8 @@ impl VisitMut for OverrideBlock {
     
     fn visit_expr_method_call_mut(&mut self, i: &mut syn::ExprMethodCall) {
         if let syn::Expr::Path(exp) = &mut *i.receiver {
-            if exp.path.segments.len() < 2 {
+            if exp.path.segments.len() < 1 {
+                syn::visit_mut::visit_expr_method_call_mut(self, i);
                 return;
             }
             let first = &exp.path.segments[0].ident;
@@ -301,11 +321,11 @@ impl VisitMut for OverrideBlock {
                     first != name
                 });
             if guard {
+                syn::visit_mut::visit_expr_method_call_mut(self, i);
                 return;
             }
-            let second = &mut exp.path.segments[1].ident;
-            if let Some(new_ident) = self.get_alt(second) {
-                *second = new_ident.clone();
+            if let Some(new_ident) = self.overrides.get_alt(&i.method) {
+                i.method = new_ident.clone();
             }
         }
         syn::visit_mut::visit_expr_method_call_mut(self, i);

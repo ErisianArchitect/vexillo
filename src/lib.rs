@@ -6,6 +6,15 @@
 //! vexillo::flags!(
 //!     // Specify struct visibility, struct name, masks visibility, and masks type.
 //!     pub struct MyFlags(pub [u16]);
+//!     // Although it is defined as a tuple struct, the resulting
+//!     // struct looks like this:
+//!     // #[repr(transparent)]
+//!     // #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+//!     // pub struct MyFlags {
+//!     //     pub masks: [u16; _], // where _ is the mask count.
+//!     // }
+//!     // Minimal requirement:
+//!     // `struct MyFlags;`, becomes `struct MyFlags([u32]);`
 //!     // Declare flag constants.
 //!     // Specify visibility of constants (use priv for private).
 //!     pub const {
@@ -202,7 +211,7 @@ pub use shared::*;
 #[macro_export]
 macro_rules! flags {
     ($($tokens:tt)*) => {
-        $crate::internal::flags_internal!{
+        $crate::internal::flags!{
             use $crate;
             $($tokens)*
         }

@@ -1,14 +1,12 @@
-use std::{sync::Mutex};
-
 use quote::{quote, ToTokens};
 use syn::{Ident, Path, Token, parse::Parse, visit_mut::VisitMut};
 
-use crate::{const_block::{ConstBlock, ConstBuildResult}, override_block::OverrideBlock, type_def::TypeDef};
+use crate::{const_block::{ConstBlock, ConstBuildResult}, override_block::{OverrideBlock, OverrideStage, Overrider}, type_def::TypeDef};
 
 pub struct FlagsInput {
     pub vexillo_crate: Path,
     pub type_def: TypeDef,
-    pub config: Mutex<OverrideBlock>,
+    pub config: OverrideBlock,
     pub consts: ConstBuildResult,
 }
 
@@ -37,7 +35,7 @@ impl Parse for FlagsInput {
         Ok(Self {
             vexillo_crate,
             type_def,
-            config: Mutex::new(config),
+            config,
             consts,
         })
     }
@@ -55,7 +53,7 @@ impl ToTokens for FlagsInput {
         let single_flag_count = self.consts.singles.len();
         let group_flag_count = self.consts.groups.len();
         let add_fn = syn::parse_quote!(add);
-        let config = self.config.lock().unwrap();
+        let config = &self.config;
         let add_fn = config.get_alt(&syn::parse_quote!(add)).unwrap_or(&add_fn);
         let all_builder = self.consts.singles.iter()
             .map(|single| {
@@ -65,7 +63,6 @@ impl ToTokens for FlagsInput {
                 )
             }).collect::<proc_macro2::TokenStream>();
         let flag_consts = self.consts.tokenize(&config);
-        drop(config);
         let builtin_consts = quote!{
             // ################################
             // #          CONSTANTS           #
@@ -173,9 +170,9 @@ fn make_func(
     )
 }
 
-fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
+fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     let mut functions = Vec::<proc_macro2::TokenStream>::with_capacity(64);
-    let mut config = input.config.lock().unwrap();
+    let config = &input.config;
     macro_rules! func {
         (
             #[doc($doc:literal $(, $( $($arg_name:ident = )? $arg:expr),*)?$(,)?)]
@@ -871,16 +868,20 @@ fn build_builtin_functions(input: &FlagsInput) -> proc_macro2::TokenStream {
     
     let inner = functions.into_iter().collect::<proc_macro2::TokenStream>();
     let type_name = input.type_name();
-    let mut impl_block = quote!(
+    let mut impl_block: syn::File = syn::parse_quote!(
         impl #type_name {
             #inner
         }
     );
-    config.visit_token_stream_mut(&mut impl_block);
+    let mut overrider = Overrider {
+        overrides: &input.config,
+        stage: OverrideStage::Functions,
+    };
+    overrider.visit_file_mut(&mut impl_block);
     impl_block
 }
 
-fn build_op_impls(input: &FlagsInput) -> proc_macro2::TokenStream {
+fn build_op_impls(input: &FlagsInput) -> syn::File {
     let ty = input.type_name();
     /*
     Not,
@@ -892,7 +893,7 @@ fn build_op_impls(input: &FlagsInput) -> proc_macro2::TokenStream {
     Index<u32, Output = bool>
     Index<usize, Output = bool>
     */
-    let mut op_impls = quote!(
+    let mut op_impls: syn::File = syn::parse_quote!(
         impl ::core::ops::Not for #ty {
             type Output = Self;
             #[inline(always)]
@@ -996,7 +997,10 @@ fn build_op_impls(input: &FlagsInput) -> proc_macro2::TokenStream {
             }
         }
     );
-    let mut config = input.config.lock().unwrap();
-    config.visit_token_stream_mut(&mut op_impls);
+    let mut overrider = Overrider {
+        overrides: &input.config,
+        stage: OverrideStage::Operators,
+    };
+    overrider.visit_file_mut(&mut op_impls);
     op_impls
 }

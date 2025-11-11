@@ -2,9 +2,7 @@ use ::core::cmp::Ordering;
 use ::core::ops::Range;
 pub use vexmacro::const_binary_search_fn;
 #[doc(hidden)]
-pub use vexproc::{
-    flags as flags_internal
-};
+pub use vexproc::flags;
 
 mod private {
     pub trait Sealed {}
@@ -44,16 +42,10 @@ macro_rules! mask_type_check {
 }
 
 pub const fn const_cmp_str(lhs: &str, rhs: &str) -> Ordering {
-    let (min_len, len_cmp) = if lhs.len() <= rhs.len() {
-        (
-            lhs.len(),
-            Ordering::Less,
-        )
+    let min_len = if lhs.len() <= rhs.len() {
+        lhs.len()
     } else {
-        (
-            rhs.len(),
-            Ordering::Greater,
-        )
+        rhs.len()
     };
     let mut byte_index = 0usize;
     let lhs = lhs.as_bytes();
@@ -68,8 +60,10 @@ pub const fn const_cmp_str(lhs: &str, rhs: &str) -> Ordering {
     }
     if lhs.len() == rhs.len() {
         Ordering::Equal
+    } else if lhs.len() <= rhs.len() {
+        Ordering::Less
     } else {
-        len_cmp
+        Ordering::Greater
     }
 }
 
