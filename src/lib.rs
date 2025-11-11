@@ -218,6 +218,9 @@ mod tests {
         flags!{
             #[doc = "Permissions"]
             pub struct Perms(pub [u8]);
+            override {
+                // pub with: include
+            }
             // Since the root is pub, all flags within the root without an
             // explicit visibility modifier will also be pub.
             pub const {
