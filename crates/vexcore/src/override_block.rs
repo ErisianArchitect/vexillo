@@ -111,6 +111,14 @@ impl OverrideBlock {
                 pub swap
                 // pub const fn from_index(index: u32) -> Self
                 pub from_index
+                // pub const fn leading_zeros(self) -> u32
+                pub leading_zeros
+                // pub const fn trailing_zeros(self) -> u32
+                pub trailing_zeros
+                // pub const fn leading_ones(self) -> u32
+                pub leading_ones
+                // pub const fn trailing_ones(self) -> u32
+                pub trailing_ones
                 // pub const fn add(&mut self, add: Self) -> &mut Self
                 pub add
                 // pub const fn add_all(&mut self, flags: &[Self]) -> &mut Self
@@ -127,12 +135,14 @@ impl OverrideBlock {
                 pub without
                 // pub const fn without_all(self, flags: &[Self]) -> Self
                 pub without_all
-                // pub const fn has_all(self, other: Self) -> bool
+                // pub const fn has_all_of(self, other: Self) -> bool
                 pub has_all
                 // pub const fn has_none(self, other: Self) -> bool
                 pub has_none
                 // pub const fn has_any(self, other: Self) -> bool
                 pub has_any
+                // pub const fn has_some(self, other: Self) -> bool
+                pub has_some
                 // pub const fn as_slice(&self) -> &[MaskTy]
                 pub as_slice
                 // pub const fn as_mut_slice(&mut self) -> &mut [MaskTy]
@@ -155,6 +165,8 @@ impl OverrideBlock {
                 pub to_ne_bytes
                 // pub const fn from_ne_bytes(bytes: [u8; size_of::<Self>()]) -> Self
                 pub from_ne_bytes
+                // pub const fn decompose(self) -> [bool; Self::SINGLE_FLAG_COUNT]
+                pub decompose
                 // pub const fn not_assign(&mut self)
                 pub not_assign
                 // pub const fn not(self) -> Self
@@ -195,6 +207,14 @@ impl OverrideBlock {
                 pub eq
                 // pub const fn ne(self, rhs: Self) -> bool
                 pub ne
+                // pub const fn is_empty(self) -> bool
+                pub is_empty
+                // pub const fn is_not_empty(self) -> bool
+                pub is_not_empty
+                // pub const fn len(self) -> usize
+                pub len
+                // pub const fn is_valid(self) -> bool
+                pub is_valid
             ]
         }
     }

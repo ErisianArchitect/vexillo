@@ -366,6 +366,35 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             builder
         }
     );
+    func!( // leading_zeros
+        #[doc("Count the number of leading zeros.")]
+        #[inline]
+        #[must_use]
+        const fn leading_zeros(self) -> u32 {
+            let mut index = #vexillo::internal::ConstCounter::new(0usize);
+            let mut count = 0u32;
+            while let i @ 0..Self::MASK_COUNT = index.next() {
+                let leading = self.masks[i].leading_zeros();
+                if leading < Self::MASK_BITS {
+                    let total = count + leading;
+                    return if total > Self::USED_BITS {
+                        Self::USED_BITS
+                    } else {
+                        total
+                    };
+                }
+            }
+            Self::USED_BITS
+        }
+    );
+    func!( // trailing_zeros
+        #[doc("Count the number of trailing zeros.")]
+        #[inline]
+        #[must_use]
+        const fn trailing_zeros(self) -> u32 {
+            
+        }
+    ) ;
     func!( // add
         #[doc("Add all of the bits present in `flag`.")]
         #[inline]
@@ -488,6 +517,21 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
                 }
             }
             false
+        }
+    );
+    func!( // has_some
+        #[doc("Test if some but not all of the bits of `flag` are present in `self`.")]
+        #[inline]
+        #[must_use]
+        const fn has_some(self, flag: Self) -> bool {
+            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
+            let mut any_ne = false;
+            let mut has_any = false;
+            while let i @ 0..Self::MASK_COUNT = mask_index.next() {
+                any_ne |= self.masks[i] != flag.masks[i];
+                has_any |= self.masks[i] & flag.masks[i] != 0;
+            }
+            has_any && any_ne
         }
     );
     let mask_ty = &input.type_def.mask_type;
@@ -646,6 +690,17 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
                 masks,
             }
         }
+    );
+    func!( // decompose
+        #[doc("Decompose bits into booleans.")]
+        #[inline]
+        #[must_use]
+        const fn decompose(self) -> [bool; Self::SINGLE_FLAG_COUNT] {
+            let mut bools = [false; Self::SINGLE_FLAG_COUNT];
+            
+            bools
+        }
+        
     );
     func!( // not_assign
         #[doc("Bitwise NOT with assignment.")]
@@ -841,10 +896,9 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[inline]
         #[must_use]
         const fn eq(self, other: Self) -> bool {
-            let me = self;
-            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
-            while let i @ 0..Self::MASK_COUNT = mask_index.next() {
-                if me.masks[i] != other.masks[i] {
+            let mut counter = #vexillo::internal::ConstCounter::new(0usize);
+            while let i @ 0..Self::MASK_COUNT = counter.next() {
+                if self.masks[i] != other.masks[i] {
                     return false;
                 }
             }
@@ -856,8 +910,8 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[inline]
         #[must_use]
         const fn ne(self, other: Self) -> bool {
-            let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
-            while let i @ 0..Self::MASK_COUNT = mask_index.next() {
+            let mut counter = #vexillo::internal::ConstCounter::new(0usize);
+            while let i @ 0..Self::MASK_COUNT = counter.next() {
                 if self.masks[i] != other.masks[i] {
                     return true;
                 }
@@ -865,7 +919,38 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             false
         }
     );
-    
+    func!( // is_empty
+        #[doc("Test if there are no flags present.")]
+        #[inline]
+        #[must_use]
+        const fn is_empty(self) -> bool {
+            self.eq(Self::NONE)
+        }
+    );
+    func!( // is_not_empty
+        #[doc("Test if there any flags present.")]
+        #[inline]
+        #[must_use]
+        const fn is_not_empty(self) -> bool {
+            self.ne(Self::NONE)
+        }
+    );
+    func!( // len
+        #[doc("Alias for `count_ones`.")]
+        #[inline]
+        #[must_use]
+        const fn len(self) -> usize {
+            self.count_ones() as _
+        }
+    );
+    func!( // is_valid
+        #[doc("Test if this is a valid bitset. That is, none of the unused bits are set.")]
+        #[inline]
+        #[must]
+        const fn is_valid(self) -> bool {
+            self.masks[Self::LAST_MASK_INDEX] & !Self::ALL.masks[Self::LAST_MASK_INDEX] == 0
+        }
+    );
     let inner = functions.into_iter().collect::<proc_macro2::TokenStream>();
     let type_name = input.type_name();
     let mut impl_block: syn::File = syn::parse_quote!(
@@ -878,6 +963,14 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         stage: OverrideStage::Functions,
     };
     overrider.visit_file_mut(&mut impl_block);
+    
+    for item in impl_block.items.iter() {
+        if let syn::Item::Fn(func) = item {
+            if !input.config.items.contains_key(&func.sig.ident) {
+                panic!("Could not find `{}` function in implementation.", func.sig.ident);
+            }
+        }
+    }
     impl_block
 }
 

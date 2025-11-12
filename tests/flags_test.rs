@@ -2,6 +2,9 @@ use vexillo::*;
 
 flags!(
     pub struct Flags(pub [u32]);
+    override {
+        pub not: bitnot
+    }
     pub const {
         FLAG0
         FLAG1
@@ -94,8 +97,55 @@ fn test_functions() {
 
 #[test]
 fn test_ops() {
-    // let flag: Flags = Flags::FLAG0 | Flags::FLAG1;
-    // assert!(
-    //     flag.has_all(Flags::union(&[Flags::FLAG0, Flags::FLAG1]))
-    // );
+    let flag: Flags = Flags::FLAG0 | Flags::FLAG1;
+    assert!(
+        flag.has_all(Flags::union(&[Flags::FLAG0, Flags::FLAG1]))
+    );
+}
+
+/*
+IMPLY: !a | b
+a   b   r
+0   0   1
+0   1   1
+1   0   0
+1   1   1
+EXAMPLE
+
+"These bits must be 1"
+NIMPLY: a & !b
+a   b   r
+0   0   0
+0   1   0
+1   0   1
+1   1   0
+"These bits must be 0"
+has_any():
+0   0   
+0   1
+1   0
+1   1   0
+EXAMPLE:
+BANNED      1   
+MUTED       1
+CHANNELS    0:  0   0
+BAN         0:  0   0
+UNBAN       0:  
+GRANT       0:
+REVOKE      0:
+*/
+
+#[test]
+fn imply_test() {
+    flags!(
+        struct Perms([u8]);
+        const {
+            // experimental
+            // @reserve(5)
+            PRIVATE
+            PUBLIC
+            WRITE
+        }
+    );
+    _=Perms::ALL;
 }
