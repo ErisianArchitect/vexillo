@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use quote::{quote, ToTokens};
 use syn::{Ident, Path, Token, parse::Parse, visit_mut::VisitMut};
 
@@ -371,17 +373,23 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[inline]
         #[must_use]
         const fn leading_zeros(self) -> u32 {
-            let mut index = #vexillo::internal::ConstCounter::new(0usize);
             let mut count = 0u32;
-            while let i @ 0..Self::MASK_COUNT = index.next() {
-                let leading = self.masks[i].leading_zeros();
-                if leading < Self::MASK_BITS {
-                    let total = count + leading;
-                    return if total > Self::USED_BITS {
-                        Self::USED_BITS
-                    } else {
-                        total
-                    };
+            let mut index = Self::LAST_MASK_INDEX;
+            let lead = self.masks[index].leading_zeros();
+            if lead < Self::MASK_BITS {
+                if lead >= Self::UNUSED_BITS {
+                    return lead - Self::UNUSED_BITS;
+                } else {
+                    panic!("Invalid bits.");
+                }
+            }
+            count += lead - Self::UNUSED_BITS;
+            while index != 0 {
+                index -= 1;
+                let lead = self.masks[index].leading_zeros();
+                count += lead;
+                if lead < Self::MASK_BITS {
+                    return count;
                 }
             }
             Self::USED_BITS
@@ -392,9 +400,23 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[inline]
         #[must_use]
         const fn trailing_zeros(self) -> u32 {
+            let mut index = #vexillo::internal::ConstCounter::new(0usize);
+            let mut count = 0u32;
+            while let i @ 0..Self::MASK_COUNT = index.next() {
+                let trailing = self.masks[i].trailing_zeros();
+                if trailing < Self::MASK_BITS {
+                    let total = count + trailing;
+                    return if total > Self::USED_BITS {
+                        Self::USED_BITS
+                    } else {
+                        total
+                    };
+                }
+            }
+            Self::USED_BITS
             
         }
-    ) ;
+    );
     func!( // add
         #[doc("Add all of the bits present in `flag`.")]
         #[inline]
@@ -946,7 +968,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     func!( // is_valid
         #[doc("Test if this is a valid bitset. That is, none of the unused bits are set.")]
         #[inline]
-        #[must]
+        #[must_use]
         const fn is_valid(self) -> bool {
             self.masks[Self::LAST_MASK_INDEX] & !Self::ALL.masks[Self::LAST_MASK_INDEX] == 0
         }
@@ -963,14 +985,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         stage: OverrideStage::Functions,
     };
     overrider.visit_file_mut(&mut impl_block);
-    
-    for item in impl_block.items.iter() {
-        if let syn::Item::Fn(func) = item {
-            if !input.config.items.contains_key(&func.sig.ident) {
-                panic!("Could not find `{}` function in implementation.", func.sig.ident);
-            }
-        }
-    }
     impl_block
 }
 

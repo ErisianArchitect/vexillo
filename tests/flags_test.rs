@@ -147,5 +147,5 @@ fn imply_test() {
             WRITE
         }
     );
-    _=Perms::ALL;
+    assert_eq!(Perms::WRITE.trailing_zeros(), 2);
 }
