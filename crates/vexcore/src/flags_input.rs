@@ -373,17 +373,18 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[inline]
         #[must_use]
         const fn leading_zeros(self) -> u32 {
-            let mut count = 0u32;
+            // leading | trailing
+            // 0b0000011110000000
+            // UNUSED_BITS bitmask example (UNUSED_BITS is bit-count, not bitmask)
+            // 0b11110000
             let mut index = Self::LAST_MASK_INDEX;
-            let lead = self.masks[index].leading_zeros();
+            let valid_mask = self.masks[index] & Self::ALL.masks[index];
+            let lead = valid_mask.leading_zeros();
             if lead < Self::MASK_BITS {
-                if lead >= Self::UNUSED_BITS {
-                    return lead - Self::UNUSED_BITS;
-                } else {
-                    panic!("Invalid bits.");
-                }
+                // valid_mask was mask ANDed with ALL, removing the unused bits.
+                return lead - Self::UNUSED_BITS;
             }
-            count += lead - Self::UNUSED_BITS;
+            let mut count = lead - Self::UNUSED_BITS;
             while index != 0 {
                 index -= 1;
                 let lead = self.masks[index].leading_zeros();
@@ -395,6 +396,21 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             Self::USED_BITS
         }
     );
+    // func!( // leading_ones
+    //     #[doc("Count the number of leading ones.")]
+    //     #[inline]
+    //     #[must_use]
+    //     const fn leading_ones(self) -> u32 {
+    //         let mut count = 0u32;
+    //         let mut index = Self::LAST_MASK_INDEX;
+    //         let let lead = self.masks[index].leading_ones();
+    //         if lead < Self::MASK_BITS {
+    //             if lead lead >= Self::UNUSED_BITS {
+                    
+    //             }
+    //         }
+    //     }
+    // );
     func!( // trailing_zeros
         #[doc("Count the number of trailing zeros.")]
         #[inline]
@@ -412,6 +428,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
                         total
                     };
                 }
+                count += trailing;
             }
             Self::USED_BITS
             
