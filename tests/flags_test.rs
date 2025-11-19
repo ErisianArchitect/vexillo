@@ -93,6 +93,43 @@ fn test_functions() {
         Flags::SUBGROUP1.count_ones(),
         2,
     );
+    flags!(
+        struct F(pub [u8]);
+        const {
+            F0
+            F1
+            F2
+            F3
+            F4
+            F5
+            F6
+            F7
+            F8
+            F9
+        }
+    );
+    //   __
+    // 0b001
+    assert_eq!(F::F0.trailing_zeros(), 0);
+    assert_eq!(F::F1.trailing_zeros(), 1);
+    assert_eq!(F::F2.trailing_zeros(), 2);
+    assert_eq!(F::F3.trailing_zeros(), 3);
+    assert_eq!(F::F4.trailing_zeros(), 4);
+    
+    assert_eq!(F::F9.leading_zeros(), 0);
+    assert_eq!(F::F8.leading_zeros(), 1);
+    assert_eq!(F::F7.leading_zeros(), 2);
+    assert_eq!(F::F6.leading_zeros(), 3);
+    assert_eq!(F::F5.leading_zeros(), 4);
+    assert_eq!(F::F4.leading_zeros(), 5);
+    assert_eq!(F::F3.leading_zeros(), 6);
+    assert_eq!(F::F2.leading_zeros(), 7);
+    assert_eq!(F::F0.leading_zeros(), 9);
+    
+    let first_three = F::union(&[F::F0, F::F1, F::F2]);
+    let last_three = F::union(&[F::F7, F::F8, F::F9]);
+    assert_eq!(first_three.trailing_ones(), 3);
+    assert_eq!(last_three.leading_ones(), 3);
 }
 
 #[test]
@@ -134,39 +171,3 @@ UNBAN       0:
 GRANT       0:
 REVOKE      0:
 */
-
-#[test]
-fn imply_test() {
-    flags!(
-        struct F(pub [u8]);
-        const {
-            F0
-            F1
-            F2
-            F3
-            F4
-            F5
-            F6
-            F7
-            F8
-            F9
-        }
-    );
-    //   __
-    // 0b001
-    assert_eq!(F::F0.trailing_zeros(), 0);
-    assert_eq!(F::F1.trailing_zeros(), 1);
-    assert_eq!(F::F2.trailing_zeros(), 2);
-    assert_eq!(F::F3.trailing_zeros(), 3);
-    assert_eq!(F::F4.trailing_zeros(), 4);
-    
-    assert_eq!(F::F9.leading_zeros(), 0);
-    assert_eq!(F::F8.leading_zeros(), 1);
-    assert_eq!(F::F7.leading_zeros(), 2);
-    assert_eq!(F::F6.leading_zeros(), 3);
-    assert_eq!(F::F5.leading_zeros(), 4);
-    assert_eq!(F::F4.leading_zeros(), 5);
-    assert_eq!(F::F3.leading_zeros(), 6);
-    assert_eq!(F::F2.leading_zeros(), 7);
-    assert_eq!(F::F0.leading_zeros(), 9);
-}

@@ -377,14 +377,14 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             // 0b0000011110000000
             // UNUSED_BITS bitmask example (UNUSED_BITS is bit-count, not bitmask)
             // 0b11110000
-            let mut index = Self::LAST_MASK_INDEX;
-            let valid_mask = self.masks[index] & Self::ALL.masks[index];
+            let valid_mask = self.masks[Self::LAST_MASK_INDEX] & Self::ALL.masks[Self::LAST_MASK_INDEX];
             let lead = valid_mask.leading_zeros();
             if lead < Self::MASK_BITS {
                 // valid_mask was mask ANDed with ALL, removing the unused bits.
                 return lead - Self::UNUSED_BITS;
             }
             let mut count = lead - Self::UNUSED_BITS;
+            let mut index = Self::LAST_MASK_INDEX;
             while index != 0 {
                 index -= 1;
                 let lead = self.masks[index].leading_zeros();
@@ -396,21 +396,30 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             Self::USED_BITS
         }
     );
-    // func!( // leading_ones
-    //     #[doc("Count the number of leading ones.")]
-    //     #[inline]
-    //     #[must_use]
-    //     const fn leading_ones(self) -> u32 {
-    //         let mut count = 0u32;
-    //         let mut index = Self::LAST_MASK_INDEX;
-    //         let let lead = self.masks[index].leading_ones();
-    //         if lead < Self::MASK_BITS {
-    //             if lead lead >= Self::UNUSED_BITS {
-                    
-    //             }
-    //         }
-    //     }
-    // );
+    func!( // leading_ones
+        #[doc("Count the number of leading ones.")]
+        #[inline]
+        #[must_use]
+        const fn leading_ones(self) -> u32 {
+            let with_unused = self.masks[Self::LAST_MASK_INDEX] | !Self::ALL.masks[Self::LAST_MASK_INDEX];
+            let lead = with_unused.leading_ones();
+            if lead < Self::MASK_BITS {
+                return lead - Self::UNUSED_BITS;
+            }
+            let mut count = lead - Self::UNUSED_BITS;
+            let mut index = Self::LAST_MASK_INDEX;
+            while index != 0 {
+                index -= 1;
+                let lead = self.masks[index].leading_ones();
+                count += lead;
+                if lead < Self::MASK_BITS {
+                    return count;
+                }
+            }
+            
+            Self::USED_BITS
+        }
+    );
     func!( // trailing_zeros
         #[doc("Count the number of trailing zeros.")]
         #[inline]
@@ -420,18 +429,37 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             let mut count = 0u32;
             while let i @ 0..Self::MASK_COUNT = index.next() {
                 let trailing = self.masks[i].trailing_zeros();
+                count += trailing;
                 if trailing < Self::MASK_BITS {
-                    let total = count + trailing;
-                    return if total > Self::USED_BITS {
+                    return if count > Self::USED_BITS {
                         Self::USED_BITS
                     } else {
-                        total
+                        count
                     };
                 }
-                count += trailing;
             }
             Self::USED_BITS
-            
+        }
+    );
+    func!( // trailing_ones
+        #[doc("Count the number of trailing ones.")]
+        #[inline]
+        #[must_use]
+        const fn trailing_ones(self) -> u32 {
+            let mut index = #vexillo::internal::ConstCounter::new(0usize);
+            let mut count = 0u32;
+            while let i @ 0..Self::MASK_COUNT = index.next() {
+                let trailing = self.masks[i].trailing_ones();
+                count += trailing;
+                if trailing < Self::MASK_BITS {
+                    return if count > Self::USED_BITS {
+                        Self::USED_BITS
+                    } else {
+                        count
+                    };
+                }
+            }
+            Self::USED_BITS
         }
     );
     func!( // add
