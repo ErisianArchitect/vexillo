@@ -56,7 +56,7 @@ impl ToTokens for FlagsInput {
         let group_flag_count = self.consts.groups.len();
         let add_fn = syn::parse_quote!(add);
         let config = &self.config;
-        let add_fn = config.get_alt(&syn::parse_quote!(add)).unwrap_or(&add_fn);
+        let add_fn = config.get_alt(&add_fn).unwrap_or(&add_fn);
         let all_builder = self.consts.singles.iter()
             .map(|single| {
                 let ident = &single.ident;
@@ -120,7 +120,8 @@ impl ToTokens for FlagsInput {
 // ################################
 // #         BUILD ARRAYS         #
 // ################################
-fn build_const_arrays(const_build: &ConstBuildResult) -> proc_macro2::TokenStream {
+fn build_const_arrays(input: &FlagsInput) -> proc_macro2::TokenStream {
+    let const_build = &input.consts;
     let mut all_flag_names = Vec::with_capacity(
         const_build.singles.len() + const_build.groups.len(),
     );
@@ -1026,7 +1027,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         }
     );
     let mut overrider = Overrider {
-        overrides: &input.config,
+        overrides: config,
         stage: OverrideStage::Functions,
     };
     overrider.visit_file_mut(&mut impl_block);
