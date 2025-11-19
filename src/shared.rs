@@ -197,7 +197,7 @@ impl FlagIndex {
 pub struct FlagRow<T: Flags> {
     pub name: &'static str,
     pub value: T,
-    sub_flag_indices: Option<&'static [u16]>,
+    sub_flag_indices: Option<&'static [FlagIndex]>,
 }
 
 impl<T: Flags> FlagRow<T> {
@@ -212,7 +212,7 @@ impl<T: Flags> FlagRow<T> {
     pub const fn group(
         name: &'static str,
         value: T,
-        sub_flag_indices: &'static [u16],
+        sub_flag_indices: &'static [FlagIndex],
     ) -> Self {
         Self {
             name,
@@ -233,7 +233,7 @@ impl<T: Flags> FlagRow<T> {
     
     #[must_use]
     #[inline(always)]
-    pub const fn sub_flag_indices(&self) -> &'static [u16] {
+    pub const fn sub_flag_indices(&self) -> &'static [FlagIndex] {
         if let Some(subflags) = self.sub_flag_indices {
             subflags
         } else {
