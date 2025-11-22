@@ -147,15 +147,29 @@ pub const fn subslice<T>(slice: &[T], range: Range<usize>) -> &[T] {
 #[must_use]
 #[track_caller]
 #[inline(always)]
-pub const fn subslice_mut<T>(slice: &mut [T], range: Range<usize>) -> &mut [T] {
+pub const unsafe fn subslice_mut<'a, T>(ptr: *mut T, range: Range<usize>) -> &'a mut [T] {
     assert!(
-        range.end <= slice.len() && range.start <= range.end,
+        range.start <= range.end,
         "Range out of bounds."
     );
     unsafe {
         ::core::slice::from_raw_parts_mut(
-            slice.as_mut_ptr().add(range.start),
+            ptr,
             range.end - range.start
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn subslice_mut_test() {
+        let mut bytes = [0u8; 32];
+        let bptr = bytes.as_mut_ptr();
+        let sub = unsafe { subslice_mut(bptr, 0..4) };
+        sub.iter_mut().for_each(|b| *b = 67);
+        println!("{:?}", bytes);
     }
 }

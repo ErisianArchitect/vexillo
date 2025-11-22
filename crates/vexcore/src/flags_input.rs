@@ -703,7 +703,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         const fn as_bytes(&self) -> &[u8] {
             unsafe {
                 ::core::slice::from_raw_parts(
-                    &self.masks as *const _ as *const u8,
+                    self.masks.as_ptr(),
                     ::core::mem::size_of::<Self>(),
                 )
             }
@@ -731,7 +731,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::internal::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
+                let sub = unsafe { #vexillo::internal::subslice_mut(bytes.as_mut_ptr(), offset..offset+Self::MASK_SIZE) };
                 let mask_bytes = self.masks[i].to_be_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -764,7 +764,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::internal::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
+                let sub = unsafe { #vexillo::internal::subslice_mut(bytes.as_mut_ptr(), offset..offset+Self::MASK_SIZE) };
                 let mask_bytes = self.masks[i].to_le_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -797,7 +797,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = #vexillo::internal::subslice_mut(&mut bytes, offset..offset+Self::MASK_SIZE);
+                let sub = unsafe { #vexillo::internal::subslice_mut(bytes.as_mut_ptr(), offset..offset+Self::MASK_SIZE) };
                 let mask_bytes = self.masks[i].to_ne_bytes();
                 sub.copy_from_slice(&mask_bytes);
             }
@@ -826,9 +826,8 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[doc("Decompose bits into booleans.")]
         #[must_use]
         const fn decompose(self) -> [bool; Self::SINGLE_FLAG_COUNT] {
-            let mut bools = [false; Self::SINGLE_FLAG_COUNT];
+            // let mut bools = [false; Self::SINGLE_FLAG_COUNT];
             todo!()
-            bools
         }
     );
     func!( // not_assign
@@ -1062,7 +1061,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         }
     );
     func!( // is_valid
-        #[doc("Test if this is a valid bitset. That is, none of the unused bits are set.")]
+        #[doc("Test if this is a valid bitset. A valid bitset has none of the unused bits set.")]
         #[inline]
         #[must_use]
         const fn is_valid(self) -> bool {
