@@ -1,10 +1,10 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{collections::{HashMap, HashSet}, sync::LazyLock};
 
 use quote::quote;
 use syn::{
     Attribute, Error, Ident, Token, Visibility, braced, bracketed, parse::Parse
 };
-use crate::{override_block::OverrideBlock, vis::Vis};
+use crate::{bitmask::Bitmask, override_block::OverrideBlock, vis::Vis};
 
 struct AddFlagsItem {
     flags: Vec<Ident>,
@@ -414,6 +414,10 @@ impl ConstBuildResult {
             #groups
         )
     }
+    
+    pub fn build_masks<'a>(&'a self) -> HashMap<&'a Ident, Bitmask> {
+        unimplemented!()
+    }
 }
 
 impl ConstBlock {
@@ -463,6 +467,10 @@ impl Parse for ConstBlock {
             items,
         }.verify()
     }
+}
+
+pub struct ConstMasks<'a> {
+    masks: HashMap<&'a Ident, Bitmask>,
 }
 
 // impl<'a> FlagConstants<'a> {

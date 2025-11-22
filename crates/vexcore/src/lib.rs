@@ -6,6 +6,7 @@ pub mod flags_input;
 pub mod override_block;
 pub mod type_def;
 pub mod vis;
+mod dep_graph;
 
 pub const FLAG_CFG_ERR_MSG: &'static str = "`cfg` attribute is error prone and is not allowed.\nInstead, use `cfg` on the macro call itself.\n\nDenying `cfg` attributes keeps the flags consistent across versions.\nAttempts to circumvent this error is likely to result in undesireable consequences.";
 

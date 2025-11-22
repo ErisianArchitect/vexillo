@@ -116,11 +116,11 @@ impl ToTokens for FlagsInput {
     }
 }
 
-// [tag]: build arrays
-// ################################
-// #         BUILD ARRAYS         #
-// ################################
-fn build_const_arrays(input: &FlagsInput) -> proc_macro2::TokenStream {
+// [tag]: build table
+// ###############################
+// #         BUILD TABLE         #
+// ###############################
+fn build_flag_table(input: &FlagsInput) -> proc_macro2::TokenStream {
     let const_build = &input.consts;
     let mut all_flag_names = Vec::with_capacity(
         const_build.singles.len() + const_build.groups.len(),
@@ -128,12 +128,19 @@ fn build_const_arrays(input: &FlagsInput) -> proc_macro2::TokenStream {
     all_flag_names.extend(
         const_build.singles.iter().map(|item| &item.ident)
     );
-    let singles = all_flag_names.as_slice();
     let groups_start = all_flag_names.len();
     all_flag_names.extend(
         const_build.groups.iter().map(|item| &item.ident)
     );
+    let singles = &all_flag_names[0..groups_start];
     let groups = &all_flag_names[groups_start..];
+    
+    let table_len = singles.len() + groups.len();
+    let single_count = singles.len();
+    let groups_count = groups.len();
+    
+    
+    
     
     // First, we need a table.
     
@@ -300,7 +307,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     func!( // count_ones
         #[doc("Return the number of ones in the binary representation of `self`.")]
         #[must_use]
-        #[inline]
         const fn count_ones(self) -> u32 {
             let mut count = 0u32;
             let mut index = #vexillo::internal::ConstCounter::new(0usize);
@@ -313,7 +319,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     func!( // count_zeros
         #[doc("Return the number of zeros in the binary representation of `self`.")]
         #[must_use]
-        #[inline]
         const fn count_zeros(self) -> u32 {
             let mut count = 0u32;
             let mut index = #vexillo::internal::ConstCounter::new(0usize);
@@ -371,7 +376,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // leading_zeros
         #[doc("Count the number of leading zeros.")]
-        #[inline]
         #[must_use]
         const fn leading_zeros(self) -> u32 {
             // leading | trailing
@@ -399,7 +403,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // leading_ones
         #[doc("Count the number of leading ones.")]
-        #[inline]
         #[must_use]
         const fn leading_ones(self) -> u32 {
             let with_unused = self.masks[Self::LAST_MASK_INDEX] | !Self::ALL.masks[Self::LAST_MASK_INDEX];
@@ -423,7 +426,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // trailing_zeros
         #[doc("Count the number of trailing zeros.")]
-        #[inline]
         #[must_use]
         const fn trailing_zeros(self) -> u32 {
             let mut index = #vexillo::internal::ConstCounter::new(0usize);
@@ -444,7 +446,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // trailing_ones
         #[doc("Count the number of trailing ones.")]
-        #[inline]
         #[must_use]
         const fn trailing_ones(self) -> u32 {
             let mut index = #vexillo::internal::ConstCounter::new(0usize);
@@ -465,7 +466,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // add
         #[doc("Add all of the bits present in `flag`.")]
-        #[inline]
         const fn add(&mut self, flag: Self) -> &mut Self {
             let mut index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = index.next() {
@@ -474,9 +474,18 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             self
         }
     );
+    func!( // add_if
+        #[doc("Add all of the bits present in `flag` if `condition` is `true`.")]
+        #[inline]
+        const fn add_if(&mut self, flag: Self, condition: bool) -> &mut Self {
+            if condition {
+                self.add(flag);
+            }
+            self
+        }
+    );
     func!( // add_all
         #[doc("Add all of the bits present in all `flags`.")]
-        #[inline]
         const fn add_all(&mut self, flags: &[Self]) -> &mut Self {
             let mut flag_index = 0usize;
             while flag_index < flags.len() {
@@ -486,9 +495,18 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             self
         }
     );
+    func!( // add_all_if
+        #[doc("Add all of the bits present in all `flags` if `condition` is `true`.")]
+        #[inline]
+        const fn add_all_if(&mut self, flags: &[Self], condition: bool) -> &mut Self {
+            if condition {
+                self.add_all(flags);
+            }
+            self
+        }
+    );
     func!( // remove
         #[doc("Remove all of the bits present in `flag`.")]
-        #[inline]
         const fn remove(&mut self, flag: Self) -> &mut Self {
             let mut index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = index.next() {
@@ -497,14 +515,33 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             self
         }
     );
+    func!( // remove_if
+        #[doc("Remove all of the bits present in `flag` if `condition` is `true`.")]
+        #[inline]
+        const fn remove_if(&mut self, flag: Self, condition: bool) -> &mut Self {
+            if condition {
+                self.remove(flag);
+            }
+            self
+        }
+    );
     func!( // remove_all
         #[doc("Remove all of the bits present in all `flags`.")]
-        #[inline]
         const fn remove_all(&mut self, flags: &[Self]) -> &mut Self {
             let mut flag_index = 0usize;
             while flag_index < flags.len() {
                 self.remove(flags[flag_index]);
                 flag_index += 1;
+            }
+            self
+        }
+    );
+    func!( // remove_all_if
+        #[doc("Remove all of the bits present in all `flags` if `condition` is `true`.")]
+        #[inline]
+        const fn remove_all_if(&mut self, flags: &[Self], condition: bool) -> &mut Self {
+            if condition {
+                self.remove_all(flags);
             }
             self
         }
@@ -518,12 +555,30 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             self
         }
     );
+    func!( // with_if
+        #[doc("Join with `flag` if `condition` is `true`.")]
+        #[inline]
+        #[must_use]
+        const fn with_if(mut self, flag: Self, condition: bool) -> Self {
+            self.add_if(flag, condition);
+            self
+        }
+    );
     func!( // with_all
         #[doc("Join with all `flags`.")]
         #[inline]
         #[must_use]
         const fn with_all(mut self, flags: &[Self]) -> Self {
             self.add_all(flags);
+            self
+        }
+    );
+    func!( // with_all_if
+        #[doc("Join with all `flags` if `condition` is `true`.")]
+        #[inline]
+        #[must_use]
+        const fn with_all_if(mut self, flags: &[Self], condition: bool) -> Self {
+            self.add_all_if(flags, condition);
             self
         }
     );
@@ -536,6 +591,15 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             self
         }
     );
+    func!( // without_if
+        #[doc("Exclude `flag` if `condition` is `true`.")]
+        #[inline]
+        #[must_use]
+        const fn without_if(mut self, flag: Self, condition: bool) -> Self {
+            self.remove_if(flag, condition);
+            self
+        }
+    );
     func!( // without_all
         #[doc("Exclude all `flags`.")]
         #[inline]
@@ -545,9 +609,17 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             self
         }
     );
+    func!( // without_all_if
+        #[doc("Exclude all `flags` if `condition` is `true`.")]
+        #[inline]
+        #[must_use]
+        const fn without_all_if(mut self, flags: &[Self], condition: bool) -> Self {
+            self.remove_all_if(flags, condition);
+            self
+        }
+    );
     func!( // has_all
         #[doc("Test if all bits of `flag` are present in `self`.")]
-        #[inline]
         #[must_use]
         const fn has_all(self, flag: Self) -> bool {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
@@ -561,7 +633,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // has_none
         #[doc("Test if none of the bits of `flag` are present in `self`.")]
-        #[inline]
         #[must_use]
         const fn has_none(self, flag: Self) -> bool {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
@@ -575,7 +646,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // has_any
         #[doc("Test if any of the bits of `flag` are present in `self`.")]
-        #[inline]
         #[must_use]
         const fn has_any(self, flag: Self) -> bool {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
@@ -589,7 +659,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // has_some
         #[doc("Test if some but not all of the bits of `flag` are present in `self`.")]
-        #[inline]
         #[must_use]
         const fn has_some(self, flag: Self) -> bool {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
@@ -656,7 +725,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // to_be_bytes
         #[doc("Return `self` as Big-Endian bytes.")]
-        #[inline]
         #[must_use]
         const fn to_be_bytes(self) -> [u8; ::core::mem::size_of::<Self>()] {
             let mut bytes = [0u8; ::core::mem::size_of::<Self>()];
@@ -672,7 +740,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // from_be_bytes
         #[doc("Create a new [{type_name}] from Big-Endian `bytes`.")]
-        #[inline]
         #[must_use]
         const fn from_be_bytes(bytes: [u8; ::core::mem::size_of::<Self>()]) -> Self {
             let mut masks = [0; Self::MASK_COUNT];
@@ -691,7 +758,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // to_le_bytes
         #[doc("Return `self` as Little-Endian bytes.")]
-        #[inline]
         #[must_use]
         const fn to_le_bytes(self) -> [u8; ::core::mem::size_of::<Self>()] {
             let mut bytes = [0u8; ::core::mem::size_of::<Self>()];
@@ -707,7 +773,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // from_le_bytes
         #[doc("Create a new [{type_name}] from Little-Endian `bytes`.")]
-        #[inline]
         #[must_use]
         const fn from_le_bytes(bytes: [u8; ::core::mem::size_of::<Self>()]) -> Self {
             let mut masks = [0; Self::MASK_COUNT];
@@ -726,7 +791,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // to_ne_bytes
         #[doc("Return `self` as Native-Endian bytes.")]
-        #[inline]
         #[must_use]
         const fn to_ne_bytes(self) -> [u8; ::core::mem::size_of::<Self>()] {
             let mut bytes = [0u8; ::core::mem::size_of::<Self>()];
@@ -742,7 +806,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // from_ne_bytes
         #[doc("Create a new [{type_name}] from Native-Endian `bytes`.")]
-        #[inline]
         #[must_use]
         const fn from_ne_bytes(bytes: [u8; ::core::mem::size_of::<Self>()]) -> Self {
             let mut masks = [0; Self::MASK_COUNT];
@@ -765,7 +828,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[must_use]
         const fn decompose(self) -> [bool; Self::SINGLE_FLAG_COUNT] {
             let mut bools = [false; Self::SINGLE_FLAG_COUNT];
-            
+            todo!()
             bools
         }
         
@@ -1134,7 +1197,7 @@ fn build_op_impls(input: &FlagsInput) -> syn::File {
             type Output = bool;
             #[inline(always)]
             fn index(&self, index: u32) -> &bool {
-                debug_assert!((index as usize) < Self::SINGLE_FLAG_COUNT, "Out of bounds.");
+                debug_assert!((index as usize) < Self::SINGLE_FLAG_COUNT, "Index out of bounds.");
                 const BOOLS: [bool; 2] = [false, true];
                 &BOOLS[self.get(index) as usize]
             }
@@ -1144,7 +1207,7 @@ fn build_op_impls(input: &FlagsInput) -> syn::File {
             type Output = bool;
             #[inline(always)]
             fn index(&self, index: usize) -> &bool {
-                debug_assert!(index < Self::SINGLE_FLAG_COUNT, "Out of bounds.");
+                debug_assert!(index < Self::SINGLE_FLAG_COUNT, "Index out of bounds.");
                 const BOOLS: [bool; 2] = [false, true];
                 &BOOLS[self.get(index as u32) as usize]
             }

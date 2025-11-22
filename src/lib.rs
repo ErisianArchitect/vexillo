@@ -270,6 +270,7 @@ mod tests {
                 ]
             }
         }
+        assert!(Perms::MOD.has_all(Perms::USER));
     }
 }
 

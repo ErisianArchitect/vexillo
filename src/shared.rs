@@ -71,10 +71,10 @@ pub trait Flags: 'static
     
     const SINGLE_FLAGS: &'static [FlagRow<Self>];
     const GROUP_FLAGS: &'static [FlagRow<Self>];
-    const BIT_ORDERED_FLAGS_TABLE: &'static [u16];
-    const ORDERED_FLAGS_TABLE: &'static [u16];
-    const ORDERED_SINGLE_FLAG_INDICES: &'static [u16];
-    const ORDERED_GROUP_FLAG_INDICES: &'static [u16];
+    const BIT_ORDERED_FLAGS_TABLE: &'static [FlagIndex];
+    const ORDERED_FLAGS_TABLE: &'static [FlagIndex];
+    const ORDERED_SINGLE_FLAG_INDICES: &'static [FlagIndex];
+    const ORDERED_GROUP_FLAG_INDICES: &'static [FlagIndex];
     
     /// Create a new instance with none of the bits set.
     fn new() -> Self;

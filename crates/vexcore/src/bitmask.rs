@@ -68,6 +68,24 @@ impl Bitmask {
     }
     
     #[inline]
+    pub fn get_bit(&self, index: u32) -> bool {
+        let (mask, bit) = mask_indices(index);
+        let bitmask = 1 << bit;
+        (self.masks[mask] & bitmask) == bitmask
+    }
+    
+    #[inline]
+    pub fn set_bit(&mut self, index: u32, on: bool) {
+        let (mask, bit) = mask_indices(index);
+        let bitmask = 1 << bit;
+        if on {
+            self.masks[mask] |= bitmask;
+        } else {
+            self.masks[mask] &= !bitmask;
+        }
+    }
+    
+    #[inline]
     #[must_use]
     pub fn count_ones(&self) -> u32 {
         self.masks

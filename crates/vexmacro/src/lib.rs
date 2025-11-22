@@ -34,42 +34,42 @@ macro_rules! combine_results {
 /// const fn comparer(lhs: u32, rhs: u32) -> ::core::cmp::Ordering;
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32) -> Result
+///     pub const fn search(const u32, const u32) -> Result
 /// );
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32) -> Option
+///     pub const fn search(const u32, const u32) -> Option
 /// );
 /// // Returns the low value on not found.
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32) -> usize
+///     pub const fn search(const u32, const u32) -> usize
 /// );
 /// 
 /// // Will panic on not found.
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32) -> usize panic
+///     pub const fn search(const u32, const u32) -> usize panic
 /// );
 /// 
 /// const fn comparer(lhs: u32, rhs: u32, context: &[u32]) -> ::core::cmp::Ordering;
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32, context: &[u32]) -> usize
+///     pub const fn search(const u32, const u32, context: &[u32]) -> usize
 /// );
 /// 
 /// const fn comparer(lhs: &u32, rhs: &u32) -> ::core::cmp::Ordering;
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(ref u32) -> Result use path::to::comparer
+///     pub const fn search(ref u32, ref u32) -> Result
 /// );
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(ref u32) -> Option use path::to::comparer
+///     pub const fn search(ref u32, ref u32) -> Option
 /// );
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(ref u32) -> usize use path::to::comparer
+///     pub const fn search(ref u32, ref u32) -> usize
 /// );
 /// ```
 #[macro_export]
@@ -121,7 +121,6 @@ macro_rules! const_binary_search_fn {
             sorted: &[$item_ty],
             $($context_name: $ctx_ty,)?
         ) -> $crate::const_binary_search_fn!(return type for $ret) {
-            use ::core::cmp::Ordering::*;
             let mut lo = 0usize;
             let mut hi = sorted.len();
             while lo < hi {
@@ -131,9 +130,9 @@ macro_rules! const_binary_search_fn {
                     $crate::const_binary_search_fn!(@reffed $item_ref sorted[mid]),
                     $($context_name)?
                 ) {
-                    Less => hi = mid,
-                    Equal => return $crate::const_binary_search_fn!(Ok(mid) for $ret),
-                    Greater => lo = mid + 1,
+                    ::core::cmp::Ordering::Less => hi = mid,
+                    ::core::cmp::Ordering::Equal => return $crate::const_binary_search_fn!(Ok(mid) for $ret),
+                    ::core::cmp::Ordering::Greater => lo = mid + 1,
                 }
             }
             $crate::const_binary_search_fn!(Err(lo) for $ret $($not_found)?)

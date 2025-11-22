@@ -54,6 +54,7 @@ pub struct OverrideItem {
     pub new_ident: Option<Ident>,
 }
 
+/// 
 pub struct OverrideBlock {
     pub items: HashMap<Ident, OverrideItem>,
 }
@@ -121,20 +122,36 @@ impl OverrideBlock {
                 pub trailing_ones
                 // pub const fn add(&mut self, add: Self) -> &mut Self
                 pub add
+                // pub const fn add_if(&mut self, add: Self, condition: bool) -> &mut Self
+                pub add_if
                 // pub const fn add_all(&mut self, flags: &[Self]) -> &mut Self
                 pub add_all
+                // pub const fn add_all_if(&mut self, flags: &[Self], condition: bool) -> &mut Self
+                pub add_all_if
                 // pub const fn remove(&mut self, remove: Self) -> &mut Self
                 pub remove
+                // pub const fn remove_if(&mut self, remove: Self, condition: bool) -> &mut Self
+                pub remove_if
                 // pub const fn remove_all(&mut self, flags: &[Self]) -> &mut Self
                 pub remove_all
+                // pub const fn remove_all_if(&mut self, flags: &[Self], condition: bool) -> &mut Self
+                pub remove_all_if
                 // pub const fn with(self, flag: Self) -> Self
                 pub with
+                // pub const fn with_if(self, flag: Self, condition: bool) -> Self
+                pub with_if
                 // pub const fn with_all(self, flags: &[Self]) -> Self
                 pub with_all
+                // pub const fn with_all_if(self, flags: &[Self], condition: bool) -> Self
+                pub with_all_if
                 // pub const fn without(self, flag: Self) -> Self
                 pub without
+                // pub const fn without_if(self, flag: Self, condition: bool) -> Self
+                pub without_if
                 // pub const fn without_all(self, flags: &[Self]) -> Self
                 pub without_all
+                // pub const fn without_all_if(self, flags: &[Self], condition: bool) -> Self
+                pub without_all_if
                 // pub const fn has_all_of(self, other: Self) -> bool
                 pub has_all
                 // pub const fn has_none(self, other: Self) -> bool

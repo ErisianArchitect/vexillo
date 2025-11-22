@@ -130,6 +130,16 @@ fn test_functions() {
     let last_three = F::union(&[F::F7, F::F8, F::F9]);
     assert_eq!(first_three.trailing_ones(), 3);
     assert_eq!(last_three.leading_ones(), 3);
+    
+    let flags = F::NONE
+        .with_if(F::F0, true)
+        .with_if(F::F1, true)
+        .with_if(F::F2, true);
+    assert!(flags.eq(F::union(&[
+        F::F0,
+        F::F1,
+        F::F2,
+    ])));
 }
 
 #[test]
