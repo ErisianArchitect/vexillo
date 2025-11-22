@@ -154,7 +154,7 @@ pub const unsafe fn subslice_mut<'a, T>(ptr: *mut T, range: Range<usize>) -> &'a
     );
     unsafe {
         ::core::slice::from_raw_parts_mut(
-            ptr.cast(),
+            ptr.add(range.start),
             range.end - range.start
         )
     }

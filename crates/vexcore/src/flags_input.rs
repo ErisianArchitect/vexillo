@@ -331,16 +331,18 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     func!( // get
         #[doc("Get the bit at `index`.")]
         #[must_use]
-        #[inline]
+        #[track_caller]
         const fn get(self, index: u32) -> bool {
+            assert!(index < Self::SINGLE_FLAG_COUNT as u32, "Index out of bounds.");
             let index = #vexillo::internal::MaskIndex::new(index, Self::MASK_BITS);
             self.masks[index.mask] & (1 << index.bit) != 0
         }
     );
     func!( // set
         #[doc("Set the bit at `index`.")]
-        #[inline]
+        #[track_caller]
         const fn set(&mut self, index: u32, on: bool) -> &mut Self {
+            assert!(index < Self::SINGLE_FLAG_COUNT as u32, "Index out of bounds.");
             let index = #vexillo::internal::MaskIndex::new(index, Self::MASK_BITS);
             if on {
                 self.masks[index.mask] |= (1 << index.bit);
@@ -352,8 +354,8 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // swap
         #[doc("Swap the bit at `index`.")]
-        #[inline]
         const fn swap(&mut self, index: u32, on: bool) -> bool {
+            assert!(index < Self::SINGLE_FLAG_COUNT as u32, "Index out of bounds.");
             let index = #vexillo::internal::MaskIndex::new(index, Self::MASK_BITS);
             let old = ((self.masks[index.mask] & (1 << index.bit)) != 0);
             if on {
@@ -368,6 +370,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[doc("Create a [{type_name}] with the bit at the given `index` set to 1.")]
         #[inline]
         #[must_use]
+        #[track_caller]
         const fn from_index(index: u32) -> Self {
             let mut builder = Self::NONE;
             builder.set(index, true);
@@ -703,7 +706,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         const fn as_bytes(&self) -> &[u8] {
             unsafe {
                 ::core::slice::from_raw_parts(
-                    self.masks.as_ptr(),
+                    self.masks.as_ptr().cast::<u8>(),
                     ::core::mem::size_of::<Self>(),
                 )
             }
@@ -717,7 +720,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         const fn as_mut_bytes(&mut self) -> &mut [u8] {
             unsafe {
                 ::core::slice::from_raw_parts_mut(
-                    &mut self.masks as *mut _ as *mut u8,
+                    self.masks.as_mut_ptr().cast::<u8>(),
                     ::core::mem::size_of::<Self>(),
                 )
             }

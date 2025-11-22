@@ -23,6 +23,86 @@ flags!(
     }
 );
 
+flags!{
+    #[doc = "Permissions"]
+    pub struct Perms(pub [u8]);
+    // Since the root is pub, all flags within the root without an
+    // explicit visibility modifier will also be pub.
+    pub const {
+        OWNER: [
+            GRANT_ADMIN
+            REVOKE_ADMIN
+            SHUTDOWN_SERVER
+            CLEAR_LOG
+            ADMIN: [
+                GRANT_SUPER
+                REVOKE_SUPER
+                CREATE_CHANNEL
+                DELETE_CHANNEL
+                RENAME_CHANNEL
+                RESTART_SERVER
+                SUPER: [
+                    GRANT_MOD
+                    REVOKE_MOD
+                    MOD: [
+                        /// Gives access to mod channels
+                        MOD_CHANNELS
+                        BAN_USER
+                        UNBAN_USER
+                        APPROVE_USER
+                        USER: [
+                            /// Gives access to user channels.
+                            USER_CHANNELS
+                            GUEST: [
+                                /// Gives access to the lobby.
+                                LOBBY
+                                /// Allows to message the mods.
+                                MESSAGE_MODS
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    }
+}
+
+#[inline]
+#[must_use]
+pub const fn perms<const LEN: usize>(perms: [Perms; LEN]) -> Perms {
+    Perms::union(&perms)
+}
+
+macro_rules! perms {
+    ($perm:ident) => {
+        Perms::$perm
+    };
+    ($($perm:ident),+$(,)?) => {
+        Perms::union(&[
+            $(
+                Perms::$perm,
+            )*
+        ])
+    };
+}
+
+#[test]
+fn test_perms() {
+    let ban1 = perms([
+        Perms::BAN_USER,
+        Perms::UNBAN_USER,
+    ]);
+    let ban = perms!(BAN_USER, UNBAN_USER);
+    assert_eq!(ban, ban1);
+    assert!(Perms::OWNER.has_all(ban));
+    assert!(Perms::OWNER.has_all(Perms::MOD));
+    assert!(Perms::OWNER.has_all(Perms::ADMIN));
+    assert!(Perms::OWNER.has_all(Perms::SUPER));
+    assert!(Perms::OWNER.has_all(Perms::USER));
+    assert!(Perms::OWNER.has_all(Perms::GUEST));
+    assert_eq!(ban.count_ones(), 2);
+}
+
 #[test]
 fn test_consts() {
     assert_eq!(
