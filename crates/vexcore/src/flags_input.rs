@@ -824,18 +824,15 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // decompose
         #[doc("Decompose bits into booleans.")]
-        #[inline]
         #[must_use]
         const fn decompose(self) -> [bool; Self::SINGLE_FLAG_COUNT] {
             let mut bools = [false; Self::SINGLE_FLAG_COUNT];
             todo!()
             bools
         }
-        
     );
     func!( // not_assign
         #[doc("Bitwise NOT with assignment.")]
-        #[inline]
         const fn not_assign(&mut self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -857,7 +854,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // and_assign
         #[doc("Bitwise AND with assignment.")]
-        #[inline]
         const fn and_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -877,7 +873,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // or_assign
         #[doc("Bitwise OR with assignment.")]
-        #[inline]
         const fn or_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -897,7 +892,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // xor_assign
         #[doc("Bitwise XOR with assignment")]
-        #[inline]
         const fn xor_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -917,7 +911,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // nand_assign
         #[doc("Bitwise NAND with assignment.")]
-        #[inline]
         const fn nand_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -938,7 +931,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // nor_assign
         #[doc("Bitwise NOR with assignment.")]
-        #[inline]
         const fn nor_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -959,7 +951,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // xnor_assign
         #[doc("Bitwise XNOR with assignment.")]
-        #[inline]
         const fn xnor_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -979,7 +970,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // imply_assign
         #[doc("Bitwise IMPLY with assignment.")]
-        #[inline]
         const fn imply_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -1002,7 +992,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // nimply_assign
         #[doc("Bitwise NIMPLY with assignment.")]
-        #[inline]
         const fn nimply_assign(&mut self, other: Self) -> &mut Self {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
@@ -1024,7 +1013,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // eq
         #[doc("Test for equality.")]
-        #[inline]
         #[must_use]
         const fn eq(self, other: Self) -> bool {
             let mut counter = #vexillo::internal::ConstCounter::new(0usize);
@@ -1038,7 +1026,6 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
     );
     func!( // ne
         #[doc("Test for inequality.")]
-        #[inline]
         #[must_use]
         const fn ne(self, other: Self) -> bool {
             let mut counter = #vexillo::internal::ConstCounter::new(0usize);
