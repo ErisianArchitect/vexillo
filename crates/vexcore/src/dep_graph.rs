@@ -27,4 +27,12 @@ impl<'a> DepGraph<'a> {
         let node_mut = self.nodes.entry(ident).or_insert_with(HashSet::new);
         node_mut.extend(dependencies);
     }
+    
+    // pub fn build(&self) -> 
 }
+
+/*
+ident: additions: [ident], removals: [ident]
+ident: mask
+
+*/

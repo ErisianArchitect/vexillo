@@ -270,6 +270,11 @@ mod tests {
                 ]
             }
         }
+        let ban = Perms::BAN_USER | Perms::UNBAN_USER;
+        assert!(Perms::MOD.has_all(ban));
+        assert!(ban.has_all(Perms::BAN_USER));
+        assert!(ban.has_all(Perms::UNBAN_USER));
+        assert_eq!(ban.count_ones(), 2);
         assert!(Perms::MOD.has_all(Perms::USER));
     }
 }

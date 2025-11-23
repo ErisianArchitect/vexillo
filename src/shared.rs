@@ -374,7 +374,7 @@ impl<
         use Self::rev_bit_count_search_cmp;
         #[must_use]
         #[inline(always)]
-        const fn bit_count_binary_search(const u32, const FlagIndex, context: &[FlagRow<T>]) -> usize
+        const fn bit_count_binary_search(static u32, static FlagIndex, context: &[FlagRow<T>]) -> usize
     );
     
     /// Returns the first index of the row in `self.bit_ordered_group_indices` where `row.bits <= bits`.

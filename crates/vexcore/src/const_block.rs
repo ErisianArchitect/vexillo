@@ -165,6 +165,7 @@ pub(crate) struct ConstSingle {
     pub attrs: Vec<Attribute>,
     pub vis: Visibility,
     pub ident: Ident,
+    pub index: u32,
 }
 
 pub(crate) struct ConstGroup {
@@ -181,9 +182,11 @@ struct ConstGroupBuilder {
     removals: Vec<Ident>,
     singles: Vec<ConstSingle>,
     groups: Vec<ConstGroup>,
+    index: u32,
 }
 
 struct ConstBlockBuilder {
+    pub single_index: u32,
     pub vis: Visibility,
     pub singles: Vec<ConstSingle>,
     pub groups: Vec<ConstGroup>,
@@ -191,10 +194,13 @@ struct ConstBlockBuilder {
 
 impl ConstBlockBuilder {
     fn build_single(&mut self, item: &DeclareFlagItem) {
+        let index = self.single_index;
+        self.single_index += 1;
         self.singles.push(ConstSingle {
             attrs: item.attrs.clone(),
             vis: item.vis.resolve(Some(&self.vis)),
             ident: item.ident.clone(),
+            index,
         });
     }
     
@@ -205,8 +211,10 @@ impl ConstBlockBuilder {
             removals: Vec::new(),
             singles: Vec::new(),
             groups: Vec::new(),
+            index: self.single_index,
         };
         builder.build_group(item);
+        self.single_index = builder.index;
         self.singles.extend(builder.singles);
         self.groups.extend(builder.groups);
         self.groups.push(ConstGroup {
@@ -221,10 +229,13 @@ impl ConstBlockBuilder {
 
 impl ConstGroupBuilder {
     fn build_single(&mut self, item: &DeclareFlagItem) {
+        let index = self.index;
+        self.index += 1;
         self.singles.push(ConstSingle {
             attrs: item.attrs.clone(),
             vis: item.vis.resolve(Some(&self.vis)),
             ident: item.ident.clone(),
+            index,
         });
         self.additions.push(item.ident.clone());
     }
@@ -250,8 +261,10 @@ impl ConstGroupBuilder {
                                 removals: Vec::new(),
                                 singles: Vec::new(),
                                 groups: Vec::new(),
+                                index: self.index,
                             };
                             builder.build_group(group);
+                            self.index = builder.index;
                             self.singles.extend(builder.singles);
                             self.groups.extend(builder.groups);
                             self.groups.push(ConstGroup {
@@ -277,6 +290,7 @@ impl ConstBlockBuilder {
             vis,
             singles: Vec::new(),
             groups: Vec::new(),
+            single_index: 0,
         }
     }
 }
@@ -374,10 +388,9 @@ impl ConstBuildResult {
         let new = override_block.get_alt(&new).unwrap_or(&new);
         let singles = self.singles
             .iter()
-            .enumerate()
-            .map(|(i, single)| {
-                let index = i as u32;
-                let ConstSingle { attrs, vis, ident } = single;
+            .map(|single| {
+                // let index = i as u32;
+                let ConstSingle { attrs, vis, ident, index } = single;
                 quote!(
                     #(#attrs)*
                     #vis const #ident: Self = Self::#from_index(#index);

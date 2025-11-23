@@ -186,6 +186,15 @@ fn test_functions() {
             F7
             F8
             F9
+            GROUP: [
+                F10
+                F11
+                SUBGROUP: [
+                    F12
+                    F13
+                ]
+                F14
+            ]
         }
     );
     //   __
@@ -196,20 +205,23 @@ fn test_functions() {
     assert_eq!(F::F3.trailing_zeros(), 3);
     assert_eq!(F::F4.trailing_zeros(), 4);
     
-    assert_eq!(F::F9.leading_zeros(), 0);
-    assert_eq!(F::F8.leading_zeros(), 1);
-    assert_eq!(F::F7.leading_zeros(), 2);
-    assert_eq!(F::F6.leading_zeros(), 3);
-    assert_eq!(F::F5.leading_zeros(), 4);
-    assert_eq!(F::F4.leading_zeros(), 5);
-    assert_eq!(F::F3.leading_zeros(), 6);
-    assert_eq!(F::F2.leading_zeros(), 7);
-    assert_eq!(F::F0.leading_zeros(), 9);
+    assert_eq!(F::F14.leading_zeros(), 0);
+    assert_eq!(F::F13.leading_zeros(), 1);
+    assert_eq!(F::F12.leading_zeros(), 2);
+    assert_eq!(F::F11.leading_zeros(), 3);
+    assert_eq!(F::F10.leading_zeros(), 4);
+    assert_eq!(F::F9.leading_zeros(), 5);
+    assert_eq!(F::F8.leading_zeros(), 6);
+    assert_eq!(F::F7.leading_zeros(), 7);
+    assert_eq!(F::F6.leading_zeros(), 8);
+    assert_eq!(F::F5.leading_zeros(), 9);
+    assert_eq!(F::F4.leading_zeros(), 10);
     
     let first_three = F::union(&[F::F0, F::F1, F::F2]);
-    let last_three = F::union(&[F::F7, F::F8, F::F9]);
+    let last_three = F::union(&[F::F12, F::F13, F::F14]);
     assert_eq!(first_three.trailing_ones(), 3);
     assert_eq!(last_three.leading_ones(), 3);
+    assert_eq!(F::GROUP.count_ones(), 5);
     
     let flags = F::NONE
         .with_if(F::F0, true)
@@ -220,6 +232,34 @@ fn test_functions() {
         F::F1,
         F::F2,
     ])));
+    
+    let flags = F::union(&[F::F0, F::F1, F::F3, F::F7, F::F9]);
+    let mut work_counter = 0usize;
+    // 1000 iterations to ensure that nothing wonky happens.
+    // something wonky might happen on the 1001st iteration,
+    // but I can't keep testing forever.
+    for _ in 0..1000 {
+        { // be_bytes
+            let bytes = flags.to_be_bytes();
+            assert_eq!(bytes.len(), size_of::<F>());
+            let ret_flags = F::from_be_bytes(bytes);
+            assert_eq!(flags, ret_flags);
+        }
+        { // le_bytes
+            let bytes = flags.to_le_bytes();
+            assert_eq!(bytes.len(), size_of::<F>());
+            let ret_flags = F::from_le_bytes(bytes);
+            assert_eq!(flags, ret_flags);
+        }
+        { // ne_bytes
+            let bytes = flags.to_ne_bytes();
+            assert_eq!(bytes.len(), size_of::<F>());
+            let ret_flags = F::from_ne_bytes(bytes);
+            assert_eq!(flags, ret_flags);
+        }
+        work_counter += 1;
+    }
+    assert_eq!(work_counter, 1000);
 }
 
 #[test]

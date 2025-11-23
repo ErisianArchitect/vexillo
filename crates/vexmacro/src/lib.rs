@@ -34,28 +34,28 @@ macro_rules! combine_results {
 /// const fn comparer(lhs: u32, rhs: u32) -> ::core::cmp::Ordering;
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32, const u32) -> Result
+///     pub const fn search(static u32, static u32) -> Result
 /// );
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32, const u32) -> Option
+///     pub const fn search(static u32, static u32) -> Option
 /// );
 /// // Returns the low value on not found.
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32, const u32) -> usize
+///     pub const fn search(static u32, static u32) -> usize
 /// );
 /// 
 /// // Will panic on not found.
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32, const u32) -> usize panic
+///     pub const fn search(static u32, static u32) -> usize panic
 /// );
 /// 
 /// const fn comparer(lhs: u32, rhs: u32, context: &[u32]) -> ::core::cmp::Ordering;
 /// const_binary_search_fn!(
 ///     use path::to::comparer;
-///     pub const fn search(const u32, const u32, context: &[u32]) -> usize
+///     pub const fn search(static u32, static u32, context: &[u32]) -> usize
 /// );
 /// 
 /// const fn comparer(lhs: &u32, rhs: &u32) -> ::core::cmp::Ordering;
@@ -99,9 +99,9 @@ macro_rules! const_binary_search_fn {
     (return type for Option) => { ::core::option::Option<usize> };
     (return type for usize) => { usize };
     (@reffed ref $expr:expr) => { &$expr };
-    (@reffed const $expr:expr) => { $expr };
+    (@reffed static $expr:expr) => { $expr };
     (@reffed_ty ref $type:ty) => { &$type };
-    (@reffed_ty const $type:ty) => { $type };
+    (@reffed_ty static $type:ty) => { $type };
     (
         use $cmp:path;
         $(

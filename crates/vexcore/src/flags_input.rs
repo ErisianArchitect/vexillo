@@ -734,9 +734,11 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = unsafe { #vexillo::internal::subslice_mut(bytes.as_mut_ptr(), offset..offset+Self::MASK_SIZE) };
                 let mask_bytes = self.masks[i].to_be_bytes();
-                sub.copy_from_slice(&mask_bytes);
+                unsafe {
+                    let dst_ptr = bytes.as_mut_ptr().add(offset);
+                    ::core::ptr::copy_nonoverlapping(mask_bytes.as_ptr(), dst_ptr, Self::MASK_SIZE);
+                }
             }
             bytes
         }
@@ -767,9 +769,11 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = unsafe { #vexillo::internal::subslice_mut(bytes.as_mut_ptr(), offset..offset+Self::MASK_SIZE) };
                 let mask_bytes = self.masks[i].to_le_bytes();
-                sub.copy_from_slice(&mask_bytes);
+                unsafe {
+                    let dst_ptr = bytes.as_mut_ptr().add(offset);
+                    ::core::ptr::copy_nonoverlapping(mask_bytes.as_ptr(), dst_ptr, Self::MASK_SIZE);
+                }
             }
             bytes
         }
@@ -800,9 +804,11 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             let mut mask_index = #vexillo::internal::ConstCounter::new(0usize);
             while let i @ 0..Self::MASK_COUNT = mask_index.next() {
                 let offset = i * Self::MASK_SIZE;
-                let sub = unsafe { #vexillo::internal::subslice_mut(bytes.as_mut_ptr(), offset..offset+Self::MASK_SIZE) };
                 let mask_bytes = self.masks[i].to_ne_bytes();
-                sub.copy_from_slice(&mask_bytes);
+                unsafe {
+                    let dst_ptr = bytes.as_mut_ptr().add(offset);
+                    ::core::ptr::copy_nonoverlapping(mask_bytes.as_ptr(), dst_ptr, Self::MASK_SIZE);
+                }
             }
             bytes
         }
