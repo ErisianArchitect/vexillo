@@ -6,10 +6,14 @@ use syn::{Ident, Path, Token, parse::Parse, visit_mut::VisitMut};
 use crate::{const_block::{ConstBlock, ConstBuildResult}, override_block::{OverrideBlock, OverrideStage, Overrider}, type_def::TypeDef};
 
 pub struct FlagsInput {
-    pub vexillo_crate: Path,
-    pub type_def: TypeDef,
-    pub config: OverrideBlock,
-    pub consts: ConstBuildResult,
+    // The root vexillo crate path must be known to the
+    // macro, so a bootstrap declarative macro is used in the root
+    // crate using the `$crate` specifier as input to this field.
+    // That allows the user to write `flags!(...)` instead of `flags!(use path_to_vexillo; ...)`
+    pub(crate) vexillo_crate: Path,
+    pub(crate) type_def: TypeDef,
+    pub(crate) config: OverrideBlock,
+    pub(crate) consts: ConstBuildResult,
 }
 
 impl FlagsInput {
@@ -57,6 +61,15 @@ impl ToTokens for FlagsInput {
         let add_fn = syn::parse_quote!(add);
         let config = &self.config;
         let add_fn = config.get_alt(&add_fn).unwrap_or(&add_fn);
+        // to create the ALL constant, we must iterate over all the
+        // single-bit flags (which represent all of the used bits).
+        // Well, technically it could be done without a builder since
+        // the single-flag count is known, but I didn't feel like
+        // writing that code, because it would depend on what the
+        // mask type is. It can be u8, u16, u32, or u64, but it
+        // cannot be known which one since the user might use an alias.
+        // That makes it harder to build the mask from a known value (the single-bit flag count).
+        
         let all_builder = self.consts.singles.iter()
             .map(|single| {
                 let ident = &single.ident;

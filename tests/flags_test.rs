@@ -263,6 +263,72 @@ fn test_functions() {
 }
 
 #[test]
+fn test_to_and_from_bytes() {
+    flags!{
+        struct F(pub [u16]);
+        override {
+            /// test
+            pub new
+        }
+        const {
+            F0
+            FIRST: [+F0]
+            F1
+            F2
+            F3
+            F4
+            F5
+            F6
+            F7
+            F8
+            F9
+            F10
+            F11
+            F12
+            F13
+            F14
+            F15
+            F16
+            F17
+            F18
+            F19
+            F20
+            F21
+            F22
+            F23
+            F24
+            F25
+            F26
+            F27
+            F28
+            F29
+            F30
+            F31
+            LAST: [+F31]
+        }
+    }
+    _=F::new();
+    // 0101 1010 1110 0111
+    let flags = F::union(&[
+        
+    ]);
+}
+
+#[test]
+fn test_flag_updates_and_groups() {
+    {
+        flags!{
+            struct F(pub [u64]);
+            const {
+                F0
+                F1
+                F2
+            }
+        }
+    }
+}
+
+#[test]
 fn test_ops() {
     let flag: Flags = Flags::FLAG0 | Flags::FLAG1;
     assert!(

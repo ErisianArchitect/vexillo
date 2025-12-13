@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use syn::{Error, Ident, Token, braced, parse::Parse, visit_mut::VisitMut};
+use syn::{Attribute, Error, Ident, Token, braced, parse::Parse, visit_mut::VisitMut};
 
 use crate::vis::Vis;
 
@@ -49,6 +49,7 @@ pub ne
 */
 
 pub struct OverrideItem {
+    pub attrs: Vec<Attribute>,
     pub vis: Vis,
     pub item_ident: Ident,
     pub new_ident: Option<Ident>,
@@ -62,7 +63,13 @@ pub struct OverrideBlock {
 impl OverrideBlock {
     pub fn new_init() -> Self {
         macro_rules! items {
-            ($($vis:vis $name:ident)*) => {
+            ($(
+                $(
+                    #[$attr:meta]
+                )*
+                $vis:vis
+                $name:ident
+            )*) => {
                 HashMap::from([
                     $(
                         {
@@ -70,6 +77,7 @@ impl OverrideBlock {
                             (
                                 ident.clone(),
                                 OverrideItem {
+                                    attrs: syn::parse_quote!($(#[$attr])*),
                                     vis: syn::parse_quote!($vis),
                                     item_ident: ident,
                                     new_ident: None,
@@ -261,6 +269,7 @@ impl OverrideBlock {
 impl Parse for OverrideItem {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         Ok(Self {
+            attrs: input.call(Attribute::parse_outer)?,
             vis: input.parse()?,
             item_ident: input.parse()?,
             new_ident: {
@@ -306,6 +315,10 @@ pub enum OverrideStage {
 
 pub struct Overrider<'a> {
     pub overrides: &'a OverrideBlock,
+    // VisitMut is used on the struct's impl block, as well as trait
+    // implementations. Without being able to specify which stage is
+    // being run, function identifiers that should not be renamed would
+    // be renamed.
     pub stage: OverrideStage,
 }
 
@@ -314,15 +327,18 @@ pub struct Overrider<'a> {
 // with `Self` or `self`.
 impl<'a> VisitMut for Overrider<'a> {
     fn visit_item_fn_mut(&mut self, i: &mut syn::ItemFn) {
-        if !matches!(self.stage, OverrideStage::Functions) {
-            syn::visit_mut::visit_item_fn_mut(self, i);
-            return;
-        }
-        if let Some(item) = self.overrides.items.get(&i.sig.ident) {
-            let vis = item.vis.resolve(Some(&i.vis));
-            i.vis = vis;
-            if let Some(alt) = &item.new_ident {
-                i.sig.ident = alt.clone();
+        if matches!(self.stage, OverrideStage::Functions) {
+            // overrides has user function override information.
+            // The user can alter function names, visibility, and can add attributes.
+            // This finds that function's alter identity from the overrides
+            // mapping, and alters it.
+            if let Some(item) = self.overrides.items.get(&i.sig.ident) {
+                i.attrs.extend(item.attrs.iter().cloned());
+                let vis = item.vis.resolve(Some(&i.vis));
+                i.vis = vis;
+                if let Some(alt) = &item.new_ident {
+                    i.sig.ident = alt.clone();
+                }
             }
         }
         syn::visit_mut::visit_item_fn_mut(self, i);
@@ -352,6 +368,7 @@ impl<'a> VisitMut for Overrider<'a> {
                 return;
             }
             let first = &exp.path.segments[0].ident;
+            // 
             let guard = const { ["self", "builder"] }
                 .into_iter()
                 .all(|name| {

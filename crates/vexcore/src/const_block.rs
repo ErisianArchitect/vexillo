@@ -172,14 +172,17 @@ pub(crate) struct ConstGroup {
     pub attrs: Vec<Attribute>,
     pub vis: Visibility,
     pub ident: Ident,
-    pub additions: Vec<Ident>,
-    pub removals: Vec<Ident>,
+    pub updates: Vec<ConstGroupUpdate>,
+}
+
+pub enum ConstGroupUpdate {
+    Add(Ident),
+    Remove(Ident),
 }
 
 struct ConstGroupBuilder {
     vis: Visibility,
-    additions: Vec<Ident>,
-    removals: Vec<Ident>,
+    updates: Vec<ConstGroupUpdate>,
     singles: Vec<ConstSingle>,
     groups: Vec<ConstGroup>,
     index: u32,
@@ -207,8 +210,9 @@ impl ConstBlockBuilder {
     fn build_group(&mut self, item: &DeclareGroupItem) {
         let mut builder = ConstGroupBuilder {
             vis: item.vis.resolve(Some(&self.vis)),
-            additions: Vec::new(),
-            removals: Vec::new(),
+            // additions: Vec::new(),
+            // removals: Vec::new(),
+            updates: Vec::new(),
             singles: Vec::new(),
             groups: Vec::new(),
             index: self.single_index,
@@ -221,8 +225,9 @@ impl ConstBlockBuilder {
             attrs: item.attrs.clone(),
             vis: builder.vis,
             ident: item.ident.clone(),
-            additions: builder.additions,
-            removals: builder.removals,
+            // additions: builder.additions,
+            // removals: builder.removals,
+            updates: builder.updates,
         });
     }
 }
@@ -237,17 +242,17 @@ impl ConstGroupBuilder {
             ident: item.ident.clone(),
             index,
         });
-        self.additions.push(item.ident.clone());
+        self.updates.push(ConstGroupUpdate::Add(item.ident.clone()));
     }
     
     fn build_group(&mut self, item: &DeclareGroupItem) {
         for item in item.items.iter() {
             match item {
                 GroupItem::Add(AddFlagsItem { flags }) => {
-                    self.additions.extend(flags.iter().cloned());
+                    self.updates.extend(flags.iter().cloned().map(ConstGroupUpdate::Add));
                 },
                 GroupItem::Remove(RemoveFlagsItem { flags }) => {
-                    self.removals.extend(flags.iter().cloned());
+                    self.updates.extend(flags.iter().cloned().map(ConstGroupUpdate::Remove));
                 },
                 GroupItem::Declare(declare) => {
                     match declare {
@@ -257,8 +262,7 @@ impl ConstGroupBuilder {
                         DeclareItem::Group(group) => {
                             let mut builder = Self {
                                 vis: group.vis.resolve(Some(&self.vis)),
-                                additions: Vec::new(),
-                                removals: Vec::new(),
+                                updates: Vec::new(),
                                 singles: Vec::new(),
                                 groups: Vec::new(),
                                 index: self.index,
@@ -271,10 +275,9 @@ impl ConstGroupBuilder {
                                 attrs: group.attrs.clone(),
                                 vis: builder.vis,
                                 ident: group.ident.clone(),
-                                additions: builder.additions,
-                                removals: builder.removals,
+                                updates: builder.updates,
                             });
-                            self.additions.push(group.ident.clone());
+                            self.updates.push(ConstGroupUpdate::Add(group.ident.clone()));
                         },
                     }
                 },
@@ -336,6 +339,10 @@ static RESERVED_CONST_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| 
     ])
 });
 
+// What the fuck is going on here?
+// A: This is one of those "only used once" kind of things.
+//    just a fancy abstraction that I wrote because I could,
+//    but not because I should.
 struct IdentVerifier<'a> {
     ident_buffer: String,
     declared: HashSet<&'a Ident>,
@@ -399,25 +406,19 @@ impl ConstBuildResult {
         let groups = self.groups
             .iter()
             .map(|group| {
-                let ConstGroup { attrs, vis, ident, additions, removals } = group;
-                let additions = additions.iter()
-                    .map(|addition| {
-                        quote!(
-                            builder.#add(Self::#addition);
-                        )
-                    }).collect::<proc_macro2::TokenStream>();
-                let removals = removals.iter()
-                    .map(|removal| {
-                        quote!(
-                            builder.#rem(Self::#removal);
-                        )
+                let ConstGroup { attrs, vis, ident, updates } = group;
+                let updates = updates.iter()
+                    .map(|update| {
+                        match update {
+                            ConstGroupUpdate::Add(ident) => quote!(builder.#add(Self::#ident);),
+                            ConstGroupUpdate::Remove(ident) => quote!(builder.#rem(Self::#ident);),
+                        }
                     }).collect::<proc_macro2::TokenStream>();
                 quote!(
                     #(#attrs)*
                     #vis const #ident: Self = {
                         let mut builder = Self::#new();
-                        #additions
-                        #removals
+                        #updates
                         builder
                     };
                 )
@@ -428,6 +429,7 @@ impl ConstBuildResult {
         )
     }
     
+    // TODO: I'm working out the dependency graph situation for this.
     pub fn build_masks<'a>(&'a self) -> HashMap<&'a Ident, Bitmask> {
         unimplemented!()
     }
@@ -436,9 +438,10 @@ impl ConstBuildResult {
 impl ConstBlock {
     fn verify(self) -> syn::Result<Self> {
         let mut verifier = IdentVerifier::new();
+        let verifier = &mut verifier;
         // Check for repeat declarations.
-        self.items.iter().try_for_each(|item| {
-            item.verify(&mut verifier)
+        self.items.iter().try_for_each(move |item| {
+            item.verify(verifier)
         })?;
         Ok(self)
     }
