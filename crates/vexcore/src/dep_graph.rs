@@ -31,20 +31,7 @@ impl<'a> DepGraph<'a> {
         node_mut.extend(dependencies);
     }
     
-    // /// Ensure that there are no cyclic dependencies.
-    // pub fn verify(&self) -> Result<(), Vec<&'a Ident>> {
-    //     let mut visited = HashSet::with_capacity(self.nodes.len());
-    //     let mut path = Vec::new();
-        
-    //     for (&ident, deps) in self.nodes.iter() {
-    //         path.clear();
-    //         path.push(ident);
-            
-    //     }
-    //     todo!()
-    // }
-    
-    pub fn topological_sort(&self) -> Result<Vec<&'a Ident>, ()> {
+    pub fn sort(&self) -> Result<Vec<&'a Ident>, ()> {
         // By this point, the dependency graph has only been built with
         // nodes that have their edges defined by dependencies, but not
         // dependents.
@@ -113,16 +100,21 @@ fn dep_graph_test() {
         syn::parse_quote!(i6),
         syn::parse_quote!(i7),
     ];
+    // macro_rules! name {
+    //     ($name:ident) => {
+    //         let $name: Ident = syn::parse_quote!($name);
+    //     };
+    // }
     let mut graph = DepGraph::new();
-    graph.insert(&i[0], [&i[7], &i[2], &i[5]]);
-    graph.insert(&i[1], [&i[3], &i[4]]);
-    graph.insert(&i[2], [&i[6]]);
-    graph.insert(&i[3], []);
-    graph.insert(&i[4], [&i[5]]);
-    graph.insert(&i[5], []);
+    graph.insert(&i[0], []);
+    graph.insert(&i[1], []);
+    graph.insert(&i[2], [&i[1]]);
+    graph.insert(&i[3], [&i[2]]);
+    graph.insert(&i[4], [&i[3]]);
+    graph.insert(&i[5], [&i[4]]);
     graph.insert(&i[6], [&i[5]]);
     graph.insert(&i[7], [&i[6]]);
-    if let Ok(sort) = graph.topological_sort() {
+    if let Ok(sort) = graph.sort() {
         assert_eq!(sort.len(), 8);
         for node in sort {
             println!("{node}");

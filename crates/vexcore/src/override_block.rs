@@ -192,6 +192,8 @@ impl OverrideBlock {
                 pub from_ne_bytes
                 // pub const fn decompose(self) -> [bool; Self::SINGLE_FLAG_COUNT]
                 pub decompose
+                // pub const fn compose(decomposed: [bool: Self::SINGLE_FLAG_COUNT]) -> Self
+                pub compose
                 // pub const fn not_assign(&mut self)
                 pub not_assign
                 // pub const fn not(self) -> Self

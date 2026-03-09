@@ -228,7 +228,7 @@ mod tests {
             #[doc = "Permissions"]
             pub struct Perms(pub [u8]);
             override {
-                // pub with: include
+                pub with: include
             }
             // Since the root is pub, all flags within the root without an
             // explicit visibility modifier will also be pub.
@@ -271,6 +271,7 @@ mod tests {
             }
         }
         let ban = Perms::BAN_USER | Perms::UNBAN_USER;
+        let _ = ban.include(Perms::APPROVE_USER);
         assert!(Perms::MOD.has_all(ban));
         assert!(ban.has_all(Perms::BAN_USER));
         assert!(ban.has_all(Perms::UNBAN_USER));

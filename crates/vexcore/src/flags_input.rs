@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use quote::{quote, ToTokens};
 use syn::{Ident, Path, Token, parse::Parse, visit_mut::VisitMut};
 
@@ -133,32 +131,25 @@ impl ToTokens for FlagsInput {
 // ###############################
 // #         BUILD TABLE         #
 // ###############################
-fn build_flag_table(input: &FlagsInput) -> proc_macro2::TokenStream {
-    let const_build = &input.consts;
-    let mut all_flag_names = Vec::with_capacity(
-        const_build.singles.len() + const_build.groups.len(),
-    );
-    all_flag_names.extend(
-        const_build.singles.iter().map(|item| &item.ident)
-    );
-    let groups_start = all_flag_names.len();
-    all_flag_names.extend(
-        const_build.groups.iter().map(|item| &item.ident)
-    );
-    let singles = &all_flag_names[0..groups_start];
-    let groups = &all_flag_names[groups_start..];
+// fn build_flag_table(input: &FlagsInput) -> proc_macro2::TokenStream {
+//     let const_build = &input.consts;
+//     let mut all_flag_names = Vec::with_capacity(
+//         const_build.singles.len() + const_build.groups.len(),
+//     );
+//     all_flag_names.extend(
+//         const_build.singles.iter().map(|item| &item.ident)
+//     );
+//     let groups_start = all_flag_names.len();
+//     all_flag_names.extend(
+//         const_build.groups.iter().map(|item| &item.ident)
+//     );
+//     let singles = &all_flag_names[0..groups_start];
+//     let groups = &all_flag_names[groups_start..];
     
-    let table_len = singles.len() + groups.len();
-    let single_count = singles.len();
-    let groups_count = groups.len();
-    
-    
-    
-    
-    // First, we need a table.
-    
-    todo!()
-}
+//     let table_len = singles.len() + groups.len();
+//     let single_count = singles.len();
+//     let groups_count = groups.len();
+// }
 
 macro_rules! docstr {
     ($doc:literal $(, $($($name:ident = )? $arg:expr),*)?$(,)?) => {
@@ -194,7 +185,7 @@ fn make_func(
 }
 
 fn build_builtin_functions(input: &FlagsInput) -> syn::File {
-    let mut functions = Vec::<proc_macro2::TokenStream>::with_capacity(64);
+    let mut functions = Vec::<proc_macro2::TokenStream>::with_capacity(input.config.items.len());
     let config = &input.config;
     macro_rules! func {
         (
@@ -338,6 +329,7 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
             while let i @ 0..Self::MASK_COUNT = index.next() {
                 count += self.masks[i].count_zeros();
             }
+            // Unused bits are guaranteed to be set to 0.
             count - Self::UNUSED_BITS
         }
     );
@@ -394,8 +386,8 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[doc("Count the number of leading zeros.")]
         #[must_use]
         const fn leading_zeros(self) -> u32 {
-            // leading | trailing
-            // 0b0000011110000000
+            //   leading | trailing
+            // 0b000000011100000000
             // UNUSED_BITS bitmask example (UNUSED_BITS is bit-count, not bitmask)
             // 0b11110000
             let valid_mask = self.masks[Self::LAST_MASK_INDEX] & Self::ALL.masks[Self::LAST_MASK_INDEX];
@@ -421,6 +413,8 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[doc("Count the number of leading ones.")]
         #[must_use]
         const fn leading_ones(self) -> u32 {
+            //   leading | trailing
+            // 0b000000011100000000
             let with_unused = self.masks[Self::LAST_MASK_INDEX] | !Self::ALL.masks[Self::LAST_MASK_INDEX];
             let lead = with_unused.leading_ones();
             if lead < Self::MASK_BITS {
@@ -444,6 +438,8 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[doc("Count the number of trailing zeros.")]
         #[must_use]
         const fn trailing_zeros(self) -> u32 {
+            //   leading | trailing
+            // 0b000000011100000000
             let mut index = #vexillo::internal::ConstCounter::new(0usize);
             let mut count = 0u32;
             while let i @ 0..Self::MASK_COUNT = index.next() {
@@ -464,6 +460,8 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[doc("Count the number of trailing ones.")]
         #[must_use]
         const fn trailing_ones(self) -> u32 {
+            //   leading | trailing
+            // 0b000000011100000000
             let mut index = #vexillo::internal::ConstCounter::new(0usize);
             let mut count = 0u32;
             while let i @ 0..Self::MASK_COUNT = index.next() {
@@ -849,7 +847,31 @@ fn build_builtin_functions(input: &FlagsInput) -> syn::File {
         #[must_use]
         const fn decompose(self) -> [bool; Self::SINGLE_FLAG_COUNT] {
             // let mut bools = [false; Self::SINGLE_FLAG_COUNT];
-            todo!()
+            let mut bools: [::core::mem::MaybeUninit<bool>; Self::SINGLE_FLAG_COUNT] = unsafe {
+                ::core::mem::MaybeUninit::uninit().assume_init()
+            };
+            let mut index = 0usize;
+            while index < Self::SINGLE_FLAG_COUNT {
+                bools[index].write(self.get(index as u32));
+                index += 1;
+            }
+            // SAFETY: By this point, bools has been initialized.
+            unsafe {
+                ::core::mem::transmute(bools)
+            }
+        }
+    );
+    func!( // compose
+        #[doc("Compose booleans into bits.")]
+        #[must_use]
+        const fn compose(decomposed: &[bool; Self::SINGLE_FLAG_COUNT]) -> Self {
+            let mut new = Self::NONE;
+            let mut index = 0usize;
+            while index < Self::SINGLE_FLAG_COUNT {
+                new.set(index as u32, decomposed[index]);
+                index += 1;
+            }
+            new
         }
     );
     func!( // not_assign

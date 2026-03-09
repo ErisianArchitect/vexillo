@@ -16,6 +16,7 @@ flags!(
                 SUBGROUP1: [
                     FLAG5
                     + FLAG0
+                    | FLAG1
                 ]
             ]
             - FLAG0

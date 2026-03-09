@@ -1,9 +1,66 @@
 """
 Builds the doc comment for `lib.rs` from `README.md`.
 """
-import re, os, sys
+from typing import (
+    Pattern,
+    Callable,
+    Iterator,
+)
+import re, sys
 from pathlib import Path
-from hydra.toolbox import text
+
+_newline_re = re.compile(r'\n')
+
+def split(text: str, separator: str | Pattern = ',', keepends: bool | Pattern = False, keepemptyend: bool = False) -> Iterator[str]:
+    """Split `text` by `separator`."""
+    if isinstance(separator, str):
+        separator = re.compile(re.escape(separator))
+    index = 0
+    while index <= len(text):
+        match = separator.search(text, index)
+        if not match:
+            end = text[index:]
+            if len(end) != 0 or keepemptyend:
+                yield text[index:]
+            break
+        match keepends:
+            case Pattern():
+                endmat = keepends.match(text, match.start())
+                if endmat:
+                    next_index = endmat.end()
+                else:
+                    next_index = match.end()
+            case True:
+                next_index = match.end()
+            case False | None:
+                next_index = match.start()
+            case _:
+                raise ValueError(keepends)
+        yield text[index:next_index]
+        index = match.end()
+
+def split_lines(text: str, keepends: bool = False, keepemptyend: bool = False) -> Iterator[str]:
+    """Split lines iterator style."""
+    yield from split(text, _newline_re, keepends, keepemptyend)
+
+def prepend_lines(prefix: str | Callable[[int, str], str], text: str):
+    """Prepend `prefix` to each line of `text`.
+    `prefix` can be a callable that takes `(line_number: int, line_text: str)`.
+    """
+    if not callable(prefix):
+        prefix = lambda *args, **kwargs: prefix
+    return '\n'.join((''.join((prefix(i, line), line)) for i, line in enumerate(split_lines(text))))
+
+def after_prefixed_lines(src: str, prefix: str | re.Pattern) -> str:
+    if isinstance(prefix, str):
+        prefix = re.compile(re.escape(prefix))
+    for m in line_start.finditer(src):
+        if not prefix.match(src, m.start()):
+            next_line = line_start.match(src, m.end())
+            if not next_line:
+                return src[len(src):]
+            return src[next_line.start():]
+    return src[len(src):]
 
 lib = Path('./src/lib.rs')
 readme = Path('./README.md')
@@ -21,22 +78,11 @@ def main(args: list[str]):
     source = lib.read_text()
     readme_text = readme.read_text()
 
-    def after_prefixed_lines(src: str, prefix: str | re.Pattern) -> str:
-        if isinstance(prefix, str):
-            prefix = re.compile(re.escape(prefix))
-        for m in line_start.finditer(src):
-            if not prefix.match(src, m.start()):
-                next_line = line_start.match(src, m.end())
-                if not next_line:
-                    return src[len(src):]
-                return src[next_line.start():]
-        return src[len(src):]
-
     cutoff = after_prefixed_lines(source, '//! ')
 
     if readme_text:
         lib.write_text('\n'.join((
-            text.prepend_lines('//! ', readme_text),
+            prepend_lines('//! ', readme_text),
             cutoff
         )))
     else:

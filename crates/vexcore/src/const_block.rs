@@ -343,6 +343,7 @@ static RESERVED_CONST_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| 
 // A: This is one of those "only used once" kind of things.
 //    just a fancy abstraction that I wrote because I could,
 //    but not because I should.
+//    It
 struct IdentVerifier<'a> {
     ident_buffer: String,
     declared: HashSet<&'a Ident>,
