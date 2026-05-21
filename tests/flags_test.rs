@@ -172,7 +172,7 @@ fn test_functions() {
     );
     assert_eq!(
         Flags::SUBGROUP1.count_ones(),
-        2,
+        3,
     );
     flags!(
         struct F(pub [u8]);
