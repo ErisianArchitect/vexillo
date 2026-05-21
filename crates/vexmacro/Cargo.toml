@@ -2,7 +2,7 @@
 [package]
 name = "vexmacro"
 description = "Declarative macros dependency for vexillo and vexcore."
-authors = "Ada F. <https://github.com/ErisianArchitect>"
+authors = ["Ada F. <https://github.com/ErisianArchitect>"]
 repository = "https://github.com/ErisianArchitect/vexillo"
 docs = "https://docs.rs/vexmacro"
 version = "0.1.0"
