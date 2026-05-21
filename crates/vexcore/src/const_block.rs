@@ -431,9 +431,9 @@ impl ConstBuildResult {
     }
     
     // TODO: I'm working out the dependency graph situation for this.
-    pub fn build_masks<'a>(&'a self) -> HashMap<&'a Ident, Bitmask> {
-        unimplemented!()
-    }
+    // pub fn build_masks<'a>(&'a self) -> HashMap<&'a Ident, Bitmask> {
+    //     unimplemented!()
+    // }
 }
 
 impl ConstBlock {
