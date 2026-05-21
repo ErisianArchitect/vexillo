@@ -1,5 +1,11 @@
+
 [package]
 name = "vexcore"
+authors = ["Ada F. <https://github.com/ErisianArchitect>"]
+description = "Core library for vexillo."
+repository = "https://github.com/ErisianArchitect/vexillo"
+docs = "https://docs.rs/vexcore"
+license = "MIT"
 version = "0.1.0"
 edition = "2024"
 
