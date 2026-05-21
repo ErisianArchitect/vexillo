@@ -3,9 +3,9 @@ name = "vexillo"
 description = "A bit flags macro."
 authors = ["Ada F. <https://github.com/ErisianArchitect>"]
 repository = "https://github.com/ErisianArchitect/vexillo"
-docs = "https://docs.rs/vexillo"
+documentation = "https://docs.rs/vexillo"
 license = "MIT"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 
 [workspace]
@@ -14,9 +14,9 @@ resolver = "3"
 
 [workspace.dependencies]
 # Internal
-vexcore = { path = "./crates/vexcore", version = "0.1.0" }
-vexmacro = { path = "./crates/vexmacro", version = "0.1.0" }
-vexproc = { path = "./crates/vexproc", version = "0.1.0" }
+vexcore = { path = "./crates/vexcore", version = "0.1.1" }
+vexmacro = { path = "./crates/vexmacro", version = "0.1.1" }
+vexproc = { path = "./crates/vexproc", version = "0.1.1" }
 # External
 paste = "1.0.15"
 proc-macro2 = "1.0.106"
