@@ -486,9 +486,9 @@ impl Parse for ConstBlock {
     }
 }
 
-pub struct ConstMasks<'a> {
-    masks: HashMap<&'a Ident, Bitmask>,
-}
+// pub struct ConstMasks<'a> {
+//     masks: HashMap<&'a Ident, Bitmask>,
+// }
 
 // impl<'a> FlagConstants<'a> {
 //     pub fn build(const_block: &'a ConstBlock) -> Self {
