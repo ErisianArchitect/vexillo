@@ -9,9 +9,9 @@ resolver = "3"
 
 [workspace.dependencies]
 # Internal
-vexcore = { path = "crates/vexcore", version = "0.1.0" }
-vexmacro = { path = "crates/vexmacro", version = "0.1.0" }
-vexproc = { path = "crates/vexproc", version = "0.1.0" }
+vexcore = { path = "./crates/vexcore", version = "0.1.0" }
+vexmacro = { path = "./crates/vexmacro", version = "0.1.0" }
+vexproc = { path = "./crates/vexproc", version = "0.1.0" }
 # External
 paste = "1.0.15"
 proc-macro2 = "1.0.106"
