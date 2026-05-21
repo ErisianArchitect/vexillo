@@ -209,6 +209,28 @@ macro_rules! flags {
     };
 }
 
+flags! {
+    pub struct FlagsExample([u8]);
+
+    pub const {
+        FOO
+        BAR
+        BAZ
+        FOOBAR: [
+            + FOO
+            | BAR
+        ]
+        FOOBAZ: [
+            + FOO
+            | BAZ
+        ]
+        BARBAZ: [
+            + BAR
+            | BAZ
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     
